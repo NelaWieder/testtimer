@@ -1277,6 +1277,18 @@
                     updateGameUI(data);
 
                     // =============================================
+                    // Host-only: detect Admin Time activation
+                    // Host should always announce "Admin time" regardless of who activated it
+                    // =============================================
+                    if (state.isHost && prevGameState && prevGameState.isPaused !== data.isPaused) {
+                        if (data.isPaused && !prevGameState.isPaused) {
+                            // Admin Time was just activated - host announces
+                            console.log('[ADMIN TIME] Admin Time activated, host announcing');
+                            TTS.speak('Admin time');
+                        }
+                    }
+
+                    // =============================================
                     // Host-only: detect Pass Gen changes from ANY player
                     // and announce accordingly ("X spasował" or "Koniec pokolenia N")
                     // =============================================
@@ -1667,10 +1679,8 @@
                     return;
                 }
                 
-                // Only host can announce
-                if (state.isHost) {
-                    TTS.speak('Admin time');
-                }
+                // Note: Host will announce "Admin time" via Firebase listener
+                // No need to announce here - listener will detect the change
                 
                 await update(ref(db, `rooms/${state.roomId}`), {
                     isPaused: true,
