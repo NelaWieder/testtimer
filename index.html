@@ -1044,7 +1044,12 @@
         
         function showNameModal() {
             el.nameModal.classList.add('active');
-            el.playerNameInput.focus();
+            // Don't auto-focus on Android - users usually select from presets
+            // Auto-focus causes keyboard to appear, hiding the screen
+            const isAndroid = /Android/.test(navigator.userAgent);
+            if (!isAndroid) {
+                el.playerNameInput.focus();
+            }
         }
         
         async function confirmPlayer() {
