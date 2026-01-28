@@ -74,7 +74,7 @@
             </div>
             
             <!-- Własne imię -->
-            <input type="text" class="name-input" id="playerNameInput" placeholder="Twoje imię" maxlength="12">
+            <input type="text" class="name-input" id="playerNameInput" placeholder="Twoje imię" maxlength="12" autocomplete="off" tabindex="0">
             <div class="color-picker" id="colorPicker">
                 <div class="color-option blue selected" data-color="blue"></div>
                 <div class="color-option red" data-color="red"></div>
@@ -1047,7 +1047,21 @@
             // Don't auto-focus on Android - users usually select from presets
             // Auto-focus causes keyboard to appear, hiding the screen
             const isAndroid = /Android/.test(navigator.userAgent);
-            if (!isAndroid) {
+            if (isAndroid) {
+                // On Android, prevent auto-focus by making input readonly initially
+                // Remove readonly when user clicks on it
+                el.playerNameInput.setAttribute('readonly', 'readonly');
+                el.playerNameInput.addEventListener('click', function removeReadonly() {
+                    el.playerNameInput.removeAttribute('readonly');
+                    el.playerNameInput.focus();
+                    el.playerNameInput.removeEventListener('click', removeReadonly);
+                }, { once: true });
+                el.playerNameInput.addEventListener('touchstart', function removeReadonlyTouch() {
+                    el.playerNameInput.removeAttribute('readonly');
+                    el.playerNameInput.focus();
+                    el.playerNameInput.removeEventListener('touchstart', removeReadonlyTouch);
+                }, { once: true });
+            } else {
                 el.playerNameInput.focus();
             }
         }
