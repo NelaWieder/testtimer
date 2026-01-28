@@ -8,19 +8,6 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#0a0118">
     <title>Mars Timer | Multiplayer</title>
-    
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="Mars Timer | Multiplayer">
-    <meta property="og:description" content="Dołącz do gry Mars Timer">
-    
-    <!-- Twitter -->
-    <meta name="twitter:card" content="summary">
-    <meta name="twitter:title" content="Mars Timer | Multiplayer">
-    <meta name="twitter:description" content="Dołącz do gry Mars Timer">
-    
-    <!-- Canonical URL for QR scanning -->
-    <link rel="canonical" id="canonical-url">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -53,20 +40,6 @@
             <button class="lobby-btn primary" id="createRoomBtn">Stwórz pokój</button>
             <div class="lobby-divider">lub</div>
             <button class="lobby-btn secondary" id="showJoinBtn">Dołącz do gry</button>
-            <button class="lobby-btn qr-scan-btn" id="scanQRBtn" title="Zeskanuj kod QR">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="3" y="3" width="5" height="5"></rect>
-                    <rect x="16" y="3" width="5" height="5"></rect>
-                    <rect x="3" y="16" width="5" height="5"></rect>
-                    <line x1="9" y1="9" x2="15" y2="9"></line>
-                    <line x1="9" y1="15" x2="15" y2="15"></line>
-                    <line x1="12" y1="3" x2="12" y2="8"></line>
-                    <line x1="12" y1="16" x2="12" y2="21"></line>
-                    <line x1="3" y1="12" x2="8" y2="12"></line>
-                    <line x1="16" y1="12" x2="21" y2="12"></line>
-                </svg>
-                <span>Zeskanuj QR</span>
-            </button>
         </div>
         <div class="join-form" id="joinForm">
             <input type="text" class="join-input" id="joinCodeInput" placeholder="KOD" maxlength="4" autocomplete="off">
@@ -78,7 +51,29 @@
     <div class="name-modal" id="nameModal">
         <div class="name-modal-content">
             <h2>Jak masz na imię?</h2>
-            <p>Wybierz swój kolor</p>
+            <p>Wybierz predefiniowanego gracza lub wpisz własne imię</p>
+            
+            <!-- Predefiniowani gracze -->
+            <div class="predefined-players" id="predefinedPlayers">
+                <button class="predefined-player-btn" data-name="Przemek" data-color="blue">
+                    <div class="predefined-player-color" style="background: #3b82f6;"></div>
+                    <span>Przemek</span>
+                </button>
+                <button class="predefined-player-btn" data-name="Karol" data-color="red">
+                    <div class="predefined-player-color" style="background: #f43f5e;"></div>
+                    <span>Karol</span>
+                </button>
+                <button class="predefined-player-btn" data-name="Benek" data-color="green">
+                    <div class="predefined-player-color" style="background: #22c55e;"></div>
+                    <span>Benek</span>
+                </button>
+            </div>
+            
+            <div class="custom-player-divider">
+                <span>lub</span>
+            </div>
+            
+            <!-- Własne imię -->
             <input type="text" class="name-input" id="playerNameInput" placeholder="Twoje imię" maxlength="12">
             <div class="color-picker" id="colorPicker">
                 <div class="color-option blue selected" data-color="blue"></div>
@@ -88,23 +83,6 @@
                 <div class="color-option black" data-color="black"></div>
             </div>
             <button class="lobby-btn primary" id="confirmNameBtn">Potwierdź</button>
-        </div>
-    </div>
-    
-    <!-- QR SCANNER MODAL -->
-    <div class="qr-scanner-modal" id="qrScannerModal">
-        <div class="qr-scanner-content">
-            <div class="qr-scanner-header">
-                <h2>Zeskanuj kod QR</h2>
-                <button class="close-qr-scanner-btn" id="closeQRScannerBtn">✕</button>
-            </div>
-            <div class="qr-scanner-info">
-                <p>Wskaż kod QR pokoju w kamerze</p>
-            </div>
-            <div id="qr-reader" class="qr-reader"></div>
-            <div class="qr-scanner-actions">
-                <button class="lobby-btn secondary" id="stopQRScannerBtn">Anuluj</button>
-            </div>
         </div>
     </div>
     
@@ -169,7 +147,7 @@
             <button class="pass-btn" id="passBtn">PASS</button>
             <div class="secondary-actions">
                 <button class="action-btn pass-gen" id="passGenBtn"><div class="progress-fill"></div><span>Pass Gen</span></button>
-                <button class="action-btn admin-time host-only" id="adminTimeBtn">Admin Time</button>
+                <button class="action-btn admin-time" id="adminTimeBtn">Admin Time</button>
             </div>
         </div>
         <div class="admin-overlay" id="adminOverlay">
@@ -180,7 +158,7 @@
             </svg>
             <h2 id="overlayTitle">Admin Time</h2>
             <p id="overlayText">Gra wstrzymana</p>
-            <button class="resume-btn host-only" id="resumeBtn">Wznów grę</button>
+            <button class="resume-btn" id="resumeBtn">Wznów grę</button>
         </div>
     </div>
     
@@ -210,8 +188,6 @@
 
     <!-- QRCode Library -->
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-    <!-- QR Scanner Library -->
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     
     <!-- Firebase -->
     <script type="module">
@@ -277,7 +253,8 @@
             pendingTurnAnnounceTimeoutId: null,
             warningPlayed: false,
             timeUpPlayed: false,
-            qrScanner: null
+            // Flag to prevent double announcement of first player on game start (iOS issue)
+            gameStartAnnounced: false
         };
         
         let unsubscribers = [];
@@ -817,12 +794,7 @@
             hostAdminBtn: $('hostAdminBtn'),
             muteBtn: $('muteBtn'),
             leaveGameBtn: $('leaveGameBtn'),
-            roomCodeSmall: $('roomCodeSmall'),
-            scanQRBtn: $('scanQRBtn'),
-            qrScannerModal: $('qrScannerModal'),
-            closeQRScannerBtn: $('closeQRScannerBtn'),
-            stopQRScannerBtn: $('stopQRScannerBtn'),
-            qrReader: $('qr-reader')
+            roomCodeSmall: $('roomCodeSmall')
         };
         
         // =============================================
@@ -1010,164 +982,12 @@
         // QR CODE
         // =============================================
         function generateQR(code) {
-            if (!code || code.length !== 4) {
-                console.warn('[QR] Invalid room code:', code);
-                return;
-            }
-            
-            el.qrContainer.innerHTML = '<div style="color: #999; font-size: 0.8rem;">Ładowanie QR...</div>';
-            const baseUrl = window.location.href.split('?')[0];
-            const url = baseUrl + '?room=' + code;
-            
-            // Aktualizuj canonical URL dla lepszego skanowania QR
-            const canonicalLink = document.getElementById('canonical-url');
-            if (canonicalLink) {
-                canonicalLink.href = url;
-            }
-            
-            // Aktualizuj meta tagi dla lepszego skanowania QR bezpośrednio z aparatu
-            updateMetaTags(url);
-            
+            el.qrContainer.innerHTML = '';
+            const url = window.location.href.split('?')[0] + '?room=' + code;
             if (typeof QRCode !== 'undefined') {
-                QRCode.toCanvas(url, { width: 180, margin: 2, errorCorrectionLevel: 'M' }, (err, canvas) => {
-                    if (!err && canvas) {
-                        el.qrContainer.innerHTML = '';
-                        el.qrContainer.appendChild(canvas);
-                        // Dodaj etykietę pod kodem QR
-                        const label = document.createElement('div');
-                        label.className = 'qr-container-label';
-                        label.textContent = 'Zeskanuj, aby dołączyć';
-                        el.qrContainer.appendChild(label);
-                    } else {
-                        console.error('[QR] Error generating QR code:', err);
-                        el.qrContainer.innerHTML = '<div style="color: #f43f5e; font-size: 0.8rem;">Błąd generowania QR</div>';
-                    }
+                QRCode.toCanvas(url, { width: 120, margin: 1 }, (err, canvas) => {
+                    if (!err) el.qrContainer.appendChild(canvas);
                 });
-            } else {
-                el.qrContainer.innerHTML = '<div style="color: #f43f5e; font-size: 0.8rem;">Biblioteka QR nie załadowana</div>';
-            }
-        }
-        
-        function updateMetaTags(url) {
-            // Aktualizuj meta tagi dla lepszego skanowania QR bezpośrednio z aparatu
-            let ogUrl = document.querySelector('meta[property="og:url"]');
-            if (!ogUrl) {
-                ogUrl = document.createElement('meta');
-                ogUrl.setAttribute('property', 'og:url');
-                document.head.appendChild(ogUrl);
-            }
-            ogUrl.setAttribute('content', url);
-        }
-        
-        // =============================================
-        // QR SCANNER
-        // =============================================
-        async function startQRScanner() {
-            if (!('Html5Qrcode' in window)) {
-                alert('Skaner QR nie jest dostępny. Upewnij się, że masz połączenie z internetem.');
-                return;
-            }
-            
-            el.qrScannerModal.classList.add('active');
-            el.qrReader.innerHTML = '';
-            
-            try {
-                state.qrScanner = new Html5Qrcode('qr-reader');
-                
-                // Konfiguracja dla urządzeń mobilnych
-                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                const qrboxSize = isMobile ? Math.min(250, window.innerWidth * 0.8) : 250;
-                
-                const config = {
-                    fps: 10,
-                    qrbox: { width: qrboxSize, height: qrboxSize },
-                    aspectRatio: 1.0,
-                    disableFlip: false,
-                    videoConstraints: {
-                        facingMode: 'environment' // Użyj tylnej kamery na urządzeniach mobilnych
-                    }
-                };
-                
-                await state.qrScanner.start(
-                    { facingMode: 'environment' },
-                    config,
-                    (decodedText, decodedResult) => {
-                        // Sukces - znaleziono kod QR
-                        handleScannedQR(decodedText);
-                    },
-                    (errorMessage) => {
-                        // Błąd skanowania (ignorujemy, bo to ciągły proces)
-                        // console.log('[QR Scanner] Scan error:', errorMessage);
-                    }
-                );
-            } catch (err) {
-                console.error('[QR Scanner] Error:', err);
-                let errorMsg = 'Nie można uruchomić kamery. ';
-                if (err.name === 'NotAllowedError') {
-                    errorMsg += 'Sprawdź uprawnienia do kamery w ustawieniach przeglądarki.';
-                } else if (err.name === 'NotFoundError') {
-                    errorMsg += 'Nie znaleziono kamery.';
-                } else {
-                    errorMsg += 'Sprawdź uprawnienia do kamery.';
-                }
-                alert(errorMsg);
-                stopQRScanner();
-            }
-        }
-        
-        function stopQRScanner() {
-            if (state.qrScanner) {
-                state.qrScanner.stop().then(() => {
-                    state.qrScanner.clear();
-                    state.qrScanner = null;
-                    el.qrScannerModal.classList.remove('active');
-                    el.qrReader.innerHTML = '';
-                }).catch((err) => {
-                    console.error('[QR Scanner] Stop error:', err);
-                    state.qrScanner = null;
-                    el.qrScannerModal.classList.remove('active');
-                    el.qrReader.innerHTML = '';
-                });
-            } else {
-                el.qrScannerModal.classList.remove('active');
-                el.qrReader.innerHTML = '';
-            }
-        }
-        
-        function handleScannedQR(decodedText) {
-            console.log('[QR Scanner] Scanned:', decodedText);
-            
-            let roomCode = null;
-            
-            // Parsuj URL - szukamy parametru ?room=
-            try {
-                // Spróbuj jako pełny URL
-                const url = new URL(decodedText);
-                roomCode = url.searchParams.get('room');
-            } catch (e) {
-                // Jeśli nie jest to pełny URL, spróbuj wyciągnąć kod z tekstu
-                const match = decodedText.match(/room=([A-Z]{4})/i) || decodedText.match(/[?&]room=([A-Z]{4})/i);
-                if (match && match[1]) {
-                    roomCode = match[1].toUpperCase();
-                } else {
-                    // Ostatnia próba - może to jest sam kod (4 duże litery)
-                    const codeMatch = decodedText.match(/^([A-Z]{4})$/);
-                    if (codeMatch && codeMatch[1]) {
-                        roomCode = codeMatch[1];
-                    }
-                }
-            }
-            
-            if (roomCode && roomCode.length === 4 && /^[A-Z]{4}$/.test(roomCode)) {
-                // Zatrzymaj skaner
-                stopQRScanner();
-                
-                // Automatycznie dołącz do pokoju
-                joinRoom(roomCode);
-            } else {
-                // Nieprawidłowy kod - pokaż komunikat, ale nie zatrzymuj skanera
-                console.warn('[QR Scanner] Invalid QR code:', decodedText);
-                // Możemy pokazać krótki komunikat, ale nie alert (żeby nie przerywać skanowania)
             }
         }
         
@@ -1228,9 +1048,18 @@
         }
         
         async function confirmPlayer() {
-            const name = el.playerNameInput.value.trim();
+            // Sprawdź czy wybrano predefiniowanego gracza
+            const selectedPredefined = document.querySelector('.predefined-player-btn.selected');
+            let name = '';
+            
+            if (selectedPredefined) {
+                name = selectedPredefined.dataset.name;
+            } else {
+                name = el.playerNameInput.value.trim();
+            }
+            
             if (!name) {
-                alert('Wpisz swoje imię!');
+                alert('Wybierz predefiniowanego gracza lub wpisz swoje imię!');
                 return;
             }
             
@@ -1389,6 +1218,12 @@
             
             const turnStartTime = Date.now();
             
+            // CRITICAL: Mark this turn as announced BEFORE updating Firebase
+            // This prevents the listener from announcing the first player again
+            state.lastAnnouncedTurnTime = turnStartTime;
+            state.lastAnnouncedGeneration = 1;
+            state.gameStartAnnounced = true; // Set flag to prevent double announcement
+            
             await update(ref(db, `rooms/${state.roomId}`), {
                 state: 'playing',
                 generation: 1,
@@ -1401,15 +1236,16 @@
                 gameStartTime: Date.now()
             });
             
-            // Mark this turn as announced
-            state.lastAnnouncedTurnTime = turnStartTime;
-            state.lastAnnouncedGeneration = 1;
-            
-            // Announce first player
+            // Announce first player (only here, listener won't announce again)
             const firstPlayer = players[0][1];
             console.log('[GAME] Starting game, first player:', firstPlayer.name);
             playTurnStart();
             TTS.speak(firstPlayer.name);
+            
+            // Clear flag after a short delay to allow normal turn announcements
+            setTimeout(() => {
+                state.gameStartAnnounced = false;
+            }, 2000);
         }
         
         function startGameListener() {
@@ -1422,6 +1258,7 @@
             // Reset state
             state.warningPlayed = false;
             state.timeUpPlayed = false;
+            state.gameStartAnnounced = false; // Reset flag when starting game listener
             
             const roomRef = ref(db, `rooms/${state.roomId}`);
             const unsubGame = onValue(roomRef, (snapshot) => {
@@ -1507,11 +1344,27 @@
                         const turnTimeChanged = data.turnStartTime !== state.lastAnnouncedTurnTime;
                         const generationChanged = data.generation !== state.lastAnnouncedGeneration;
                         
+                        // CRITICAL: Skip announcement if we've already announced this exact turnStartTime
+                        // This prevents double announcement on iOS where listener may fire before TTS.speak() completes
+                        const alreadyAnnounced = state.lastAnnouncedTurnTime === data.turnStartTime;
+                        
+                        // Also check if this is the first snapshot after game start
+                        const isFirstSnapshot = !prevGameState || prevGameState.state !== 'playing';
+                        
+                        // CRITICAL: If game start was just announced, skip this announcement
+                        // This prevents double announcement on iOS
+                        const skipDueToGameStart = state.gameStartAnnounced && isFirstSnapshot && data.generation === 1 && data.currentPlayerIndex === 0;
+                        
                         console.log('[TURN CHECK] turnStartTime:', data.turnStartTime, 
                                     'lastAnnounced:', state.lastAnnouncedTurnTime,
-                                    'changed:', turnTimeChanged);
+                                    'changed:', turnTimeChanged,
+                                    'alreadyAnnounced:', alreadyAnnounced,
+                                    'isFirstSnapshot:', isFirstSnapshot,
+                                    'skipDueToGameStart:', skipDueToGameStart);
                         
-                        if (turnTimeChanged) {
+                        // Only announce if turn changed AND we haven't already announced this exact time
+                        // AND we're not skipping due to game start announcement
+                        if (turnTimeChanged && !alreadyAnnounced && !skipDueToGameStart) {
                             // Nowa tura! Ogłoś gracza
                             const playerOrder = data.playerOrder || [];
                             const currentPlayerId = playerOrder[data.currentPlayerIndex];
@@ -1643,6 +1496,11 @@
                 el.passBtn.disabled = !isMyTurn || data.isPaused;
                 el.passGenBtn.disabled = !isMyTurn || data.isPaused;
                 
+                // Admin Time button: enabled during player's turn (to pause) or if host (to resume)
+                const pausedBy = data.pausedBy;
+                const canUseAdminTime = isMyTurn || state.isHost || (data.isPaused && pausedBy === state.playerId);
+                el.adminTimeBtn.disabled = !canUseAdminTime;
+                
                 const timerGradient = document.querySelector('#timerGradient');
                 if (timerGradient) {
                     timerGradient.innerHTML = `<stop offset="0%" style="stop-color:${COLOR_HEX[currentPlayer.color]}"/><stop offset="100%" style="stop-color:${COLOR_HEX[currentPlayer.color]}"/>`;
@@ -1681,6 +1539,11 @@
                 el.overlayTitle.textContent = data.overlayTitle || 'Admin Time';
                 el.overlayText.textContent = data.overlayText || 'Gra wstrzymana';
                 el.resumeBtn.textContent = data.overlayButton || 'Wznów grę';
+                
+                // Show resume button only for host or player who paused
+                const pausedBy = data.pausedBy;
+                const canResume = state.isHost || (pausedBy === state.playerId);
+                el.resumeBtn.style.display = canResume ? 'inline-block' : 'none';
             } else {
                 el.adminOverlay.classList.remove('active');
             }
@@ -1788,23 +1651,45 @@
         
         // ADMIN TIME
         async function toggleAdminTime() {
-            if (!state.isHost || !state.gameState) return;
+            if (!state.gameState) return;
             
+            // Check if it's player's turn (for pausing) or if they're host (for resuming)
+            const playerOrder = state.gameState.playerOrder || [];
+            const currentPlayerId = playerOrder[state.gameState.currentPlayerIndex];
+            const isMyTurn = currentPlayerId === state.playerId;
             const isPaused = !state.gameState.isPaused;
             
+            // Only allow pausing during player's turn, or resuming if host
             if (isPaused) {
-                // Pausing
-                TTS.speak('Admin time');
+                // Pausing - only during player's turn
+                if (!isMyTurn) {
+                    console.log('[ADMIN TIME] Cannot pause - not your turn');
+                    return;
+                }
+                
+                // Only host can announce
+                if (state.isHost) {
+                    TTS.speak('Admin time');
+                }
                 
                 await update(ref(db, `rooms/${state.roomId}`), {
                     isPaused: true,
                     pausedAt: Date.now(),
                     overlayTitle: 'Admin Time',
                     overlayText: 'Gra wstrzymana',
-                    overlayButton: 'Wznów grę'
+                    overlayButton: 'Wznów grę',
+                    pausedBy: state.playerId // Track who paused
                 });
             } else {
-                // Resuming
+                // Resuming - only host or the player who paused can resume
+                const pausedBy = state.gameState.pausedBy;
+                const canResume = state.isHost || (pausedBy === state.playerId);
+                
+                if (!canResume) {
+                    console.log('[ADMIN TIME] Cannot resume - only host or player who paused can resume');
+                    return;
+                }
+                
                 const pauseDuration = Date.now() - (state.gameState.pausedAt || Date.now());
                 const newTurnTime = state.gameState.turnStartTime + pauseDuration;
                 
@@ -1813,7 +1698,8 @@
                 
                 await update(ref(db, `rooms/${state.roomId}`), {
                     isPaused: false,
-                    turnStartTime: newTurnTime
+                    turnStartTime: newTurnTime,
+                    pausedBy: null // Clear pausedBy when resuming
                 });
             }
         }
@@ -1846,11 +1732,6 @@
         }
         
         async function leaveRoom() {
-            // Zatrzymaj skaner QR jeśli działa
-            if (state.qrScanner) {
-                stopQRScanner();
-            }
-            
             unsubscribers.forEach(unsub => unsub());
             unsubscribers = [];
             
@@ -1878,6 +1759,7 @@
             state.lastAnnouncedGeneration = 0;
             state.warningPlayed = false;
             state.timeUpPlayed = false;
+            state.gameStartAnnounced = false;
             
             clearSession();
             document.body.classList.remove('is-host');
@@ -1922,17 +1804,6 @@
             el.joinCodeInput.focus();
         });
         
-        el.scanQRBtn.addEventListener('click', startQRScanner);
-        el.closeQRScannerBtn.addEventListener('click', stopQRScanner);
-        el.stopQRScannerBtn.addEventListener('click', stopQRScanner);
-        
-        // Zamknij skaner przy kliknięciu w tło
-        el.qrScannerModal.addEventListener('click', (e) => {
-            if (e.target === el.qrScannerModal) {
-                stopQRScanner();
-            }
-        });
-        
         el.joinCodeInput.addEventListener('input', (e) => {
             e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, '');
         });
@@ -1946,12 +1817,41 @@
             if (e.key === 'Enter' && el.joinCodeInput.value.length === 4) joinRoom(el.joinCodeInput.value);
         });
         
+        // Predefiniowani gracze
+        const predefinedPlayers = document.querySelectorAll('.predefined-player-btn');
+        predefinedPlayers.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Usuń zaznaczenie z innych przycisków
+                predefinedPlayers.forEach(b => b.classList.remove('selected'));
+                // Zaznacz kliknięty przycisk
+                btn.classList.add('selected');
+                // Ustaw imię i kolor
+                state.playerName = btn.dataset.name;
+                state.playerColor = btn.dataset.color;
+                // Wyczyść input
+                el.playerNameInput.value = '';
+                // Zaktualizuj wybór koloru w color pickerze
+                document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+                const colorOption = document.querySelector(`.color-option[data-color="${state.playerColor}"]`);
+                if (colorOption) colorOption.classList.add('selected');
+            });
+        });
+        
+        // Reset przy wyborze własnego imienia
+        el.playerNameInput.addEventListener('input', () => {
+            if (el.playerNameInput.value.trim()) {
+                predefinedPlayers.forEach(b => b.classList.remove('selected'));
+            }
+        });
+        
         el.colorPicker.addEventListener('click', (e) => {
             const option = e.target.closest('.color-option');
             if (option) {
                 document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
                 option.classList.add('selected');
                 state.playerColor = option.dataset.color;
+                // Jeśli wybrano kolor, usuń zaznaczenie z predefiniowanych graczy
+                predefinedPlayers.forEach(b => b.classList.remove('selected'));
             }
         });
         
@@ -2106,17 +2006,13 @@
             // Initialize TTS early (but unlock needs user gesture)
             TTS.init();
             
-            // Check URL for room code (from QR scan or direct link)
+            // Check URL for room code
             const urlParams = new URLSearchParams(window.location.search);
             const roomCode = urlParams.get('room');
             
-            if (roomCode && roomCode.length === 4) {
-                // Automatycznie dołącz do pokoju jeśli kod jest w URL (ze skanowania QR)
-                el.joinCodeInput.value = roomCode.toUpperCase();
-                // Automatycznie próbuj dołączyć po krótkim opóźnieniu (daje czas na załadowanie)
-                setTimeout(() => {
-                    joinRoom(roomCode.toUpperCase());
-                }, 500);
+            if (roomCode) {
+                el.joinCodeInput.value = roomCode;
+                el.joinForm.classList.add('active');
             }
             
             // Auto-reconnect
