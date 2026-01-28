@@ -1,0 +1,2173 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover, maximum-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0a0118">
+    <title>Mars Timer | Multiplayer</title>
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Mars Timer | Multiplayer">
+    <meta property="og:description" content="Dołącz do gry Mars Timer">
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Mars Timer | Multiplayer">
+    <meta name="twitter:description" content="Dołącz do gry Mars Timer">
+    
+    <!-- Canonical URL for QR scanning -->
+    <link rel="canonical" id="canonical-url">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Exo+2:wght@300;400;500;600;700;800&subset=latin-ext&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="galaxy-bg"></div>
+    <div class="stars"></div>
+    <div class="bg-overlay"></div>
+    
+    <svg class="svg-defs">
+        <defs>
+            <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#a855f7"/>
+                <stop offset="100%" style="stop-color:#ec4899"/>
+            </linearGradient>
+        </defs>
+    </svg>
+    
+    <div class="connection-status" id="connectionStatus">⚠ Brak połączenia...</div>
+    
+    <!-- LOBBY SCREEN -->
+    <div class="screen lobby-screen active" id="lobbyScreen">
+        <div class="mars-planet-lobby"></div>
+        <div class="lobby-logo">
+            <h1>Mars Timer</h1>
+            <p>Multiplayer</p>
+        </div>
+        <div class="lobby-actions">
+            <button class="lobby-btn primary" id="createRoomBtn">Stwórz pokój</button>
+            <div class="lobby-divider">lub</div>
+            <button class="lobby-btn secondary" id="showJoinBtn">Dołącz do gry</button>
+            <button class="lobby-btn qr-scan-btn" id="scanQRBtn" title="Zeskanuj kod QR">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="5" height="5"></rect>
+                    <rect x="16" y="3" width="5" height="5"></rect>
+                    <rect x="3" y="16" width="5" height="5"></rect>
+                    <line x1="9" y1="9" x2="15" y2="9"></line>
+                    <line x1="9" y1="15" x2="15" y2="15"></line>
+                    <line x1="12" y1="3" x2="12" y2="8"></line>
+                    <line x1="12" y1="16" x2="12" y2="21"></line>
+                    <line x1="3" y1="12" x2="8" y2="12"></line>
+                    <line x1="16" y1="12" x2="21" y2="12"></line>
+                </svg>
+                <span>Zeskanuj QR</span>
+            </button>
+        </div>
+        <div class="join-form" id="joinForm">
+            <input type="text" class="join-input" id="joinCodeInput" placeholder="KOD" maxlength="4" autocomplete="off">
+            <button class="lobby-btn primary" id="joinRoomBtn">Dołącz</button>
+        </div>
+    </div>
+    
+    <!-- NAME MODAL -->
+    <div class="name-modal" id="nameModal">
+        <div class="name-modal-content">
+            <h2>Jak masz na imię?</h2>
+            <p>Wybierz swój kolor</p>
+            <input type="text" class="name-input" id="playerNameInput" placeholder="Twoje imię" maxlength="12">
+            <div class="color-picker" id="colorPicker">
+                <div class="color-option blue selected" data-color="blue"></div>
+                <div class="color-option red" data-color="red"></div>
+                <div class="color-option green" data-color="green"></div>
+                <div class="color-option yellow" data-color="yellow"></div>
+                <div class="color-option black" data-color="black"></div>
+            </div>
+            <button class="lobby-btn primary" id="confirmNameBtn">Potwierdź</button>
+        </div>
+    </div>
+    
+    <!-- QR SCANNER MODAL -->
+    <div class="qr-scanner-modal" id="qrScannerModal">
+        <div class="qr-scanner-content">
+            <div class="qr-scanner-header">
+                <h2>Zeskanuj kod QR</h2>
+                <button class="close-qr-scanner-btn" id="closeQRScannerBtn">✕</button>
+            </div>
+            <div class="qr-scanner-info">
+                <p>Wskaż kod QR pokoju w kamerze</p>
+            </div>
+            <div id="qr-reader" class="qr-reader"></div>
+            <div class="qr-scanner-actions">
+                <button class="lobby-btn secondary" id="stopQRScannerBtn">Anuluj</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- WAITING ROOM -->
+    <div class="screen waiting-screen" id="waitingScreen">
+        <div class="room-header">
+            <div class="room-code-label">Kod pokoju</div>
+            <div class="room-code" id="roomCodeDisplay">----</div>
+            <div class="qr-container" id="qrContainer"></div>
+        </div>
+        <div class="time-setting-mini" id="timeSettingMini" style="display:none;">
+            <div class="time-label-mini">Czas tury:</div>
+            <button class="time-btn-mini" id="timeDownMini">−</button>
+            <div class="time-display-mini"><span id="timeValueMini">45</span>s</div>
+            <button class="time-btn-mini" id="timeUpMini">+</button>
+        </div>
+        <div class="players-waiting">
+            <div class="players-waiting-title">Gracze w pokoju</div>
+            <div id="waitingPlayersList"></div>
+        </div>
+        <div class="waiting-actions">
+            <button class="start-game-btn" id="startGameBtn" disabled>Czekam na graczy...</button>
+            <button class="leave-btn" id="leaveRoomBtn">Opuść pokój</button>
+        </div>
+    </div>
+    
+    <!-- GAME SCREEN -->
+    <div class="screen game-screen" id="gameScreen">
+        <div class="generation-bar">
+            <div class="generation-info">
+                <span class="generation-label">Pokolenie</span>
+                <span class="generation-number" id="genNumber">1</span>
+            </div>
+            <div class="game-timer" id="gameTimer">0:00</div>
+            <button class="menu-btn" id="menuBtn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+        <div class="players-strip" id="playersStrip"></div>
+        <div class="timer-area">
+            <div class="current-player-name" id="currentPlayerName">---</div>
+            <div class="current-player-label" id="currentPlayerLabel">Tura gracza</div>
+            <div class="timer-display">
+                <div class="mars-planet">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/0/02/OSIRIS_Mars_true_color.jpg" alt="Mars">
+                </div>
+                <div class="timer-overlay"></div>
+                <div class="timer-ring">
+                    <svg viewBox="0 0 280 280">
+                        <circle class="timer-ring-bg" cx="140" cy="140" r="130"/>
+                        <circle class="timer-ring-progress" id="timerProgress" cx="140" cy="140" r="130"/>
+                    </svg>
+                </div>
+                <div class="timer-text" id="timerText">0:45</div>
+            </div>
+        </div>
+        <div class="action-area">
+            <button class="pass-btn" id="passBtn">PASS</button>
+            <div class="secondary-actions">
+                <button class="action-btn pass-gen" id="passGenBtn"><div class="progress-fill"></div><span>Pass Gen</span></button>
+                <button class="action-btn admin-time host-only" id="adminTimeBtn">Admin Time</button>
+            </div>
+        </div>
+        <div class="admin-overlay" id="adminOverlay">
+            <svg class="admin-overlay-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <h2 id="overlayTitle">Admin Time</h2>
+            <p id="overlayText">Gra wstrzymana</p>
+            <button class="resume-btn host-only" id="resumeBtn">Wznów grę</button>
+        </div>
+    </div>
+    
+    <!-- HOST PANEL -->
+    <div class="host-panel-backdrop" id="hostPanelBackdrop"></div>
+    <div class="host-panel" id="hostPanel">
+        <div class="host-panel-header">
+            <h2>Panel</h2>
+            <button class="close-panel-btn" id="closePanelBtn">✕</button>
+        </div>
+        <div class="host-panel-section" id="hostOnlySection" style="display:none;">
+            <div class="host-panel-section-title">Kontrola gry (Host)</div>
+            <button class="host-action-btn next-gen-btn" id="nextGenBtn" style="display:none;">🚀 Następne Pokolenie</button>
+            <button class="host-action-btn" id="forceNextBtn">⏭ Następna tura</button>
+            <button class="host-action-btn" id="hostAdminBtn">⏸ Admin Time</button>
+        </div>
+        <div class="host-panel-section" id="hostSoundSection" style="display:none;">
+            <div class="host-panel-section-title">Dźwięk</div>
+            <button class="host-action-btn" id="muteBtn">🔊 Wycisz dźwięki</button>
+        </div>
+        <div class="host-panel-section">
+            <div class="host-panel-section-title">Pokój</div>
+            <button class="host-action-btn danger" id="leaveGameBtn">🚪 Opuść grę</button>
+        </div>
+        <div class="room-info-small">Kod pokoju: <span id="roomCodeSmall">----</span></div>
+    </div>
+
+    <!-- QRCode Library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <!-- QR Scanner Library -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    
+    <!-- Firebase -->
+    <script type="module">
+        // =============================================
+        // FIREBASE CONFIG
+        // =============================================
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { 
+            getDatabase, ref, set, get, onValue, off, update, remove, onDisconnect, serverTimestamp 
+        } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyCQwMpiRgAIXs7g6el_35HepBqOcm6gQVU",
+            authDomain: "tm-timer-nw.firebaseapp.com",
+            databaseURL: "https://tm-timer-nw-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "tm-timer-nw",
+            storageBucket: "tm-timer-nw.firebasestorage.app",
+            messagingSenderId: "425133932279",
+            appId: "1:425133932279:web:c631018437f5dcdf115df2"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        
+        // =============================================
+        // CONSTANTS
+        // =============================================
+        const COLORS = ['blue', 'red', 'green', 'yellow', 'black'];
+        const COLOR_HEX = { red: '#f43f5e', blue: '#3b82f6', green: '#22c55e', yellow: '#facc15', black: '#6b7280' };
+        
+        // Polish ordinal numbers for generation announcement
+        const POLISH_ORDINALS = {
+            1: 'pierwsze', 2: 'drugie', 3: 'trzecie', 4: 'czwarte', 5: 'piąte',
+            6: 'szóste', 7: 'siódme', 8: 'ósme', 9: 'dziewiąte', 10: 'dziesiąte',
+            11: 'jedenaste', 12: 'dwunaste', 13: 'trzynaste', 14: 'czternaste', 15: 'piętnaste',
+            16: 'szesnaste', 17: 'siedemnaste', 18: 'osiemnaste', 19: 'dziewiętnaste', 20: 'dwudzieste'
+        };
+        
+        // =============================================
+        // STATE
+        // =============================================
+        let state = {
+            roomId: null,
+            playerId: null,
+            playerName: '',
+            playerColor: 'blue',
+            isHost: false,
+            isMuted: false,
+            turnDuration: 45,
+            players: {},
+            gameState: null,
+            localTimerInterval: null,
+            gameTimerInterval: null,
+            audioContext: null,
+            holdTimeout: null,
+            holdProgress: 0,
+            // KLUCZOWE: używamy turnStartTime jako unikalnego markera tury
+            lastAnnouncedTurnTime: 0,
+            lastAnnouncedGeneration: 0,
+            // If we announce "X spasował", defer the next "turn start" speech to avoid overlap
+            deferNextTurnAnnouncementUntil: 0,
+            // Cancel pending "turn start" speech when state changes (e.g. Pass Gen)
+            pendingTurnAnnounceTimeoutId: null,
+            warningPlayed: false,
+            timeUpPlayed: false,
+            qrScanner: null
+        };
+        
+        let unsubscribers = [];
+        
+        // =============================================
+        // TTS (TEXT-TO-SPEECH) MODULE - NAPRAWIONY
+        // =============================================
+        const TTS = {
+            isUnlocked: false,
+            voicesLoaded: false,
+            polishVoice: null,
+            unlockAttempts: 0,
+            
+            // Detect platform
+            getPlatform() {
+                const ua = navigator.userAgent;
+                if (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) return 'ios';
+                if (/Android/.test(ua)) return 'android';
+                return 'desktop';
+            },
+            
+            // Initialize - call early
+            init() {
+                if (!('speechSynthesis' in window)) {
+                    console.warn('[TTS] Speech Synthesis NOT supported in this browser');
+                    return false;
+                }
+                
+                console.log('[TTS] Initializing... Platform:', this.getPlatform());
+                
+                // Load voices immediately
+                this.loadVoices();
+                
+                // iOS/Safari: voices load asynchronously
+                speechSynthesis.onvoiceschanged = () => {
+                    console.log('[TTS] onvoiceschanged fired');
+                    this.loadVoices();
+                };
+                
+                // Periodic voice check for stubborn browsers
+                setTimeout(() => this.loadVoices(), 100);
+                setTimeout(() => this.loadVoices(), 500);
+                setTimeout(() => this.loadVoices(), 1000);
+                
+                return true;
+            },
+            
+            // Load and find Polish voice
+            loadVoices() {
+                const voices = speechSynthesis.getVoices();
+                console.log('[TTS] Available voices:', voices.length);
+                
+                if (voices.length === 0) {
+                    console.log('[TTS] No voices yet, waiting...');
+                    return;
+                }
+                
+                this.voicesLoaded = true;
+                
+                // Find Polish voice - check various language formats (pl, pl-PL, pl_PL, pl-pl, pl_pl)
+                const plVoices = voices.filter(v => {
+                    if (!v.lang) return false;
+                    const lang = v.lang.toLowerCase();
+                    return lang === 'pl' || lang.startsWith('pl-') || lang.startsWith('pl_') || lang === 'pl-pl' || lang === 'pl_pl';
+                });
+                
+                console.log('[TTS] Polish voices found:', plVoices.length);
+                if (plVoices.length > 0) {
+                    console.log('[TTS] Polish voices:', plVoices.map(v => `${v.name} (${v.lang})`));
+                }
+                
+                if (plVoices.length > 0) {
+                    // Prefer certain voices (Google TTS is usually best)
+                    this.polishVoice = plVoices.find(v => 
+                        v.name.includes('Google') || 
+                        v.name.toLowerCase().includes('google') ||
+                        v.name.includes('Zosia') ||
+                        v.name.includes('Paulina') ||
+                        v.name.includes('Microsoft')
+                    ) || plVoices[0];
+                    
+                    console.log('[TTS] Selected Polish voice:', this.polishVoice.name, '(' + this.polishVoice.lang + ')');
+                } else {
+                    console.warn('[TTS] No Polish voice found - will use lang fallback');
+                    console.warn('[TTS] Available voices:', voices.map(v => `${v.name} (${v.lang})`).join(', '));
+                    this.polishVoice = null;
+                }
+            },
+            
+            // CRITICAL: Unlock TTS - must be called from user gesture!
+            async unlock() {
+                if (this.isUnlocked) {
+                    console.log('[TTS] Already unlocked');
+                    return true;
+                }
+                
+                console.log('[TTS] Attempting unlock... (attempt #' + (++this.unlockAttempts) + ')');
+                
+                const platform = this.getPlatform();
+                
+                try {
+                    // Try to load voices right before unlock (mobile race-condition helper)
+                    this.loadVoices();
+
+                    // Cancel any pending speech
+                    speechSynthesis.cancel();
+                    
+                    // Method 1: Silent utterance (works on most platforms)
+                    // NOTE: Some Android builds won't start synthesis for whitespace-only utterances.
+                    // Use a short token but keep volume effectively silent.
+                    const utterance = new SpeechSynthesisUtterance('a');
+                    // On Android, volume=0 can result in "silent forever" behavior on some builds.
+                    // Keep it extremely low but non-zero.
+                    utterance.volume = platform === 'android' ? 0.001 : 0.0;
+                    utterance.rate = platform === 'android' ? 10 : 1.0;
+                    utterance.lang = 'pl-PL';
+                    
+                    // Platform strategy:
+                    // - iOS: never assign a voice object (Safari can break)
+                    // - Android: force system default (Chrome often goes silent when a voice object is assigned)
+                    // - Desktop: assign a preferred PL voice if available
+                    if (platform === 'android') {
+                        utterance.voice = null;
+                        utterance.lang = 'pl-PL';
+                    } else if (platform === 'desktop' && this.polishVoice) {
+                        // Re-resolve by name to avoid stale voice object references
+                        const resolved = speechSynthesis.getVoices().find(v => v.name === this.polishVoice.name) || null;
+                        utterance.voice = resolved;
+                    }
+                    
+                    return new Promise((resolve) => {
+                        utterance.onend = () => {
+                            this.isUnlocked = true;
+                            console.log('[TTS] Unlock SUCCESS via onend');
+                            resolve(true);
+                        };
+                        
+                        utterance.onerror = (e) => {
+                            // Some errors are OK (interrupted, etc)
+                            console.log('[TTS] Unlock utterance error:', e.error);
+                            this.isUnlocked = true; // Try anyway
+                            resolve(true);
+                        };
+                        
+                        speechSynthesis.speak(utterance);
+                        
+                        // Timeout fallback
+                        setTimeout(() => {
+                            this.isUnlocked = true;
+                            console.log('[TTS] Unlock via timeout fallback');
+                            resolve(true);
+                        }, 300);
+                    });
+                } catch (e) {
+                    console.error('[TTS] Unlock error:', e);
+                    this.isUnlocked = true; // Try anyway
+                    return true;
+                }
+            },
+            
+            // Main speak function
+            speak(text) {
+                // Guards
+                if (!state.isHost) {
+                    console.log('[TTS] Not host, skipping:', text);
+                    return;
+                }
+                
+                if (state.isMuted) {
+                    console.log('[TTS] Muted, skipping:', text);
+                    return;
+                }
+                
+                if (!('speechSynthesis' in window)) {
+                    console.log('[TTS] No speechSynthesis support');
+                    return;
+                }
+                
+                console.log('[TTS] ▶ SPEAKING:', text, '| Unlocked:', this.isUnlocked, '| Voice:', this.polishVoice?.name || 'default');
+                
+                const platform = this.getPlatform();
+                
+                // ALWAYS cancel before new speech (critical for iOS!)
+                speechSynthesis.cancel();
+
+                const speakNow = () => {
+                    try {
+                        // Voice list can be empty / still loading on mobile; try again right before speaking.
+                        if (!this.voicesLoaded) this.loadVoices();
+
+                        const utterance = new SpeechSynthesisUtterance(text);
+                        utterance.lang = 'pl-PL';
+                        // Android: keep defaults (some devices go silent with non-default pitch/rate)
+                        if (platform === 'android') {
+                            utterance.rate = 1.0;
+                            utterance.pitch = 1.0;
+                        } else {
+                            utterance.rate = 1.0;
+                            utterance.pitch = 0.95;
+                        }
+                        utterance.volume = 1.0;
+
+                        // Voice selection strategy by platform
+                        if (platform === 'ios') {
+                            // iOS: DON'T set voice object - just use lang
+                            console.log('[TTS] iOS mode - using lang only');
+                        } else if (platform === 'android') {
+                            // ANDROID: Use Polish voice if available, otherwise fallback
+                            // Android Chrome often fails when voice=null, but works when a voice object is assigned.
+                            const voices = speechSynthesis.getVoices();
+                            
+                            // Log all available voices for debugging
+                            console.log('[TTS] Android - wszystkie dostępne głosy:', voices.map(v => `${v.name} (${v.lang})`));
+                            
+                            let preferred = null;
+                            
+                            // 1. First try: use this.polishVoice if already found
+                            if (this.polishVoice) {
+                                const resolved = voices.find(v => v.name === this.polishVoice.name && v.lang === this.polishVoice.lang) || 
+                                                voices.find(v => v.name === this.polishVoice.name) ||
+                                                null;
+                                if (resolved) {
+                                    preferred = resolved;
+                                    console.log('[TTS] Android mode - using cached Polish voice:', preferred.name, '(' + preferred.lang + ')');
+                                }
+                            }
+                            
+                            // 2. Second try: search for Polish voice with various language formats
+                            if (!preferred) {
+                                preferred = voices.find(v => {
+                                    if (!v.lang) return false;
+                                    const lang = v.lang.toLowerCase();
+                                    return lang === 'pl' || lang.startsWith('pl-') || lang.startsWith('pl_') || lang === 'pl-pl' || lang === 'pl_pl';
+                                }) || null;
+                                
+                                if (preferred) {
+                                    console.log('[TTS] Android mode - found Polish voice:', preferred.name, '(' + preferred.lang + ')');
+                                }
+                            }
+                            
+                            // 3. Fallback: tylko jeśli NAPRAWDĘ brak polskiego głosu
+                            if (!preferred && voices.length > 0) {
+                                preferred = voices[0];
+                                console.warn('[TTS] Android mode - UWAGA: brak głosu polskiego, używam fallback:', preferred.name, '(' + preferred.lang + ')');
+                                console.warn('[TTS] Android mode - Sprawdź czy polski głos jest zainstalowany w ustawieniach systemowych!');
+                            }
+                            
+                            if (preferred) {
+                                utterance.voice = preferred;
+                                utterance.lang = preferred.lang; // Ustaw język zgodny z głosem
+                                console.log('[TTS] Android mode - final voice:', preferred.name, '(' + preferred.lang + ')');
+                            } else {
+                                // Ostateczny fallback: no voice object, just lang
+                                utterance.voice = null;
+                                utterance.lang = 'pl-PL';
+                                console.warn('[TTS] Android mode - no voices found, using lang only');
+                            }
+                        } else {
+                            // Desktop: Use best voice if available
+                            if (this.polishVoice) {
+                                const resolved = speechSynthesis.getVoices().find(v => v.name === this.polishVoice.name) || null;
+                                utterance.voice = resolved;
+                            }
+                            console.log('[TTS] Desktop mode - voice:', utterance.voice?.name || 'default');
+                        }
+
+                        // Android: timeout handling for missing events
+                        let startTimeout = null;
+                        let endTimeout = null;
+                        let startFired = false;
+                        let endFired = false;
+                        
+                        const cleanup = () => {
+                            if (startTimeout) clearTimeout(startTimeout);
+                            if (endTimeout) clearTimeout(endTimeout);
+                        };
+
+                        utterance.onstart = () => {
+                            startFired = true;
+                            if (startTimeout) clearTimeout(startTimeout);
+                            console.log('[TTS] ✓ Speech started:', text);
+                        };
+
+                        // Android "keep alive" resume tick (helps some Chrome builds)
+                        let resumeTicker = null;
+                        if (platform === 'android') {
+                            resumeTicker = setInterval(() => {
+                                try { speechSynthesis.resume(); } catch (_) {}
+                            }, 250);
+                            
+                            // Timeout dla onstart - Android Chrome czasami nie wywołuje tego eventu
+                            startTimeout = setTimeout(() => {
+                                if (!startFired) {
+                                    console.log('[TTS] Android: onstart nie został wywołany po 2 sekundach, ale speaking=' + speechSynthesis.speaking);
+                                    // Jeśli speaking jest true, prawdopodobnie działa, ale bez eventu
+                                    if (speechSynthesis.speaking) {
+                                        startFired = true;
+                                        console.log('[TTS] Android: Mówienie wydaje się działać (speaking=true), kontynuuję...');
+                                    }
+                                }
+                            }, 2000);
+                        }
+
+                        const clearTicker = () => {
+                            if (resumeTicker) {
+                                clearInterval(resumeTicker);
+                                resumeTicker = null;
+                            }
+                        };
+
+                        utterance.onend = () => {
+                            endFired = true;
+                            cleanup();
+                            clearTicker();
+                            console.log('[TTS] ✓ Speech ended:', text);
+                        };
+                        
+                        // Android: timeout dla onend
+                        if (platform === 'android') {
+                            endTimeout = setTimeout(() => {
+                                if (!endFired) {
+                                    console.log('[TTS] Android: onend nie został wywołany po 10 sekundach. speaking=' + speechSynthesis.speaking + ', pending=' + speechSynthesis.pending);
+                                    if (!speechSynthesis.speaking && !speechSynthesis.pending) {
+                                        // Wydaje się, że się skończyło, ale bez eventu
+                                        endFired = true;
+                                        cleanup();
+                                        clearTicker();
+                                        console.log('[TTS] Android: Mówienie wydaje się zakończone (speaking=false, pending=false), kończę...');
+                                    } else {
+                                        // Nadal mówi lub czeka - może być problem
+                                        console.log('[TTS] Android: Mówienie nadal trwa lub czeka. Anuluję.');
+                                        speechSynthesis.cancel();
+                                        cleanup();
+                                        clearTicker();
+                                    }
+                                }
+                            }, 10000);
+                        }
+
+                        utterance.onerror = (e) => {
+                            console.error('[TTS] ✗ Speech error:', e.error, 'for text:', text);
+                            cleanup();
+                            clearTicker();
+
+                            // Retry once on error (except 'interrupted' which is normal)
+                            if (e.error !== 'interrupted' && e.error !== 'canceled') {
+                                console.log('[TTS] Retrying speech...');
+                                setTimeout(() => {
+                                    // Always cancel before a new utterance to avoid queue buildup
+                                    speechSynthesis.cancel();
+                                    const retry = new SpeechSynthesisUtterance(text);
+                                    retry.rate = 1.0;
+                                    retry.pitch = platform === 'android' ? 1.0 : 0.95;
+                                    retry.volume = 1.0;
+                                    if (platform === 'android') {
+                                        // Retry: try Polish voice first with better detection, then fallback
+                                        const voices = speechSynthesis.getVoices();
+                                        let retryVoice = null;
+                                        
+                                        // Try cached Polish voice first
+                                        if (this.polishVoice) {
+                                            retryVoice = voices.find(v => v.name === this.polishVoice.name && v.lang === this.polishVoice.lang) || 
+                                                        voices.find(v => v.name === this.polishVoice.name) ||
+                                                        null;
+                                        }
+                                        
+                                        // Search for Polish voice with various formats
+                                        if (!retryVoice) {
+                                            retryVoice = voices.find(v => {
+                                                if (!v.lang) return false;
+                                                const lang = v.lang.toLowerCase();
+                                                return lang === 'pl' || lang.startsWith('pl-') || lang.startsWith('pl_') || lang === 'pl-pl' || lang === 'pl_pl';
+                                            }) || null;
+                                        }
+                                        
+                                        // Fallback only if no Polish voice found
+                                        if (!retryVoice && voices.length > 0) {
+                                            retryVoice = voices[0];
+                                            console.warn('[TTS] Android retry - using fallback voice:', retryVoice.name, '(' + retryVoice.lang + ')');
+                                        }
+                                        
+                                        if (retryVoice) {
+                                            retry.voice = retryVoice;
+                                            retry.lang = retryVoice.lang;
+                                        } else {
+                                            retry.lang = 'pl-PL';
+                                        }
+                                    } else {
+                                        retry.lang = 'pl-PL';
+                                    }
+                                    if (speechSynthesis.paused) speechSynthesis.resume();
+                                    speechSynthesis.speak(retry);
+                                }, 250);
+                            }
+                        };
+
+                        // Chrome bug workaround: resume if paused
+                        if (speechSynthesis.paused) speechSynthesis.resume();
+
+                        speechSynthesis.speak(utterance);
+
+                        // HARD ANDROID FALLBACK: if it didn't start, try again shortly with a different strategy
+                        if (platform === 'android') {
+                            setTimeout(() => {
+                                if (!speechSynthesis.speaking && !startFired) {
+                                    console.warn('[TTS] Android: not speaking after speak(), forcing retry');
+                                    speechSynthesis.cancel();
+                                    cleanup();
+                                    clearTicker();
+                                    // Try with voice object (Polish first with better detection, then fallback)
+                                    const voices = speechSynthesis.getVoices();
+                                    let retryVoice = null;
+                                    
+                                    // Try cached Polish voice first
+                                    if (this.polishVoice) {
+                                        retryVoice = voices.find(v => v.name === this.polishVoice.name && v.lang === this.polishVoice.lang) || 
+                                                    voices.find(v => v.name === this.polishVoice.name) ||
+                                                    null;
+                                    }
+                                    
+                                    // Search for Polish voice with various formats
+                                    if (!retryVoice) {
+                                        retryVoice = voices.find(v => {
+                                            if (!v.lang) return false;
+                                            const lang = v.lang.toLowerCase();
+                                            return lang === 'pl' || lang.startsWith('pl-') || lang.startsWith('pl_') || lang === 'pl-pl' || lang === 'pl_pl';
+                                        }) || null;
+                                    }
+                                    
+                                    // Fallback only if no Polish voice found
+                                    if (!retryVoice && voices.length > 0) {
+                                        retryVoice = voices[0];
+                                        console.warn('[TTS] Android hard retry - using fallback voice:', retryVoice.name, '(' + retryVoice.lang + ')');
+                                    }
+                                    
+                                    const retry2 = new SpeechSynthesisUtterance(text);
+                                    retry2.rate = 1.0;
+                                    retry2.pitch = 1.0;
+                                    retry2.volume = 1.0;
+                                    if (retryVoice) {
+                                        retry2.voice = retryVoice;
+                                        retry2.lang = retryVoice.lang;
+                                        console.warn('[TTS] Android: hard retry with voice:', retryVoice.name, '(' + retryVoice.lang + ')');
+                                    } else {
+                                        retry2.lang = 'pl-PL';
+                                        console.warn('[TTS] Android: hard retry without voice object (lang only)');
+                                    }
+                                    if (speechSynthesis.paused) speechSynthesis.resume();
+                                    speechSynthesis.speak(retry2);
+                                }
+                            }, 300);
+                        }
+
+                        // Desktop-only: watchdog resume
+                        if (platform === 'desktop') {
+                            setTimeout(() => {
+                                if (speechSynthesis.speaking && speechSynthesis.paused) {
+                                    speechSynthesis.resume();
+                                }
+                            }, 5000);
+                        }
+                    } catch (e) {
+                        console.error('[TTS] Speak exception:', e);
+                    }
+                };
+
+                // Platform timing:
+                // - iOS: delay helps after cancel()
+                // - Android: NO delay (like mars-timer-ost.html) - call immediately after cancel
+                // - Desktop: small delay is fine
+                if (platform === 'ios') {
+                    setTimeout(speakNow, 100);
+                } else if (platform === 'android') {
+                    // Android: call immediately, no rAF or setTimeout (matches working version)
+                    speakNow();
+                } else {
+                    setTimeout(speakNow, 50);
+                }
+            },
+            
+            // Stop all speech
+            stop() {
+                console.log('[TTS] Stopping all speech');
+                speechSynthesis.cancel();
+            }
+        };
+        
+        // =============================================
+        // DOM ELEMENTS
+        // =============================================
+        const $ = id => document.getElementById(id);
+        const el = {
+            connectionStatus: $('connectionStatus'),
+            lobbyScreen: $('lobbyScreen'),
+            waitingScreen: $('waitingScreen'),
+            gameScreen: $('gameScreen'),
+            nameModal: $('nameModal'),
+            createRoomBtn: $('createRoomBtn'),
+            showJoinBtn: $('showJoinBtn'),
+            joinForm: $('joinForm'),
+            joinCodeInput: $('joinCodeInput'),
+            joinRoomBtn: $('joinRoomBtn'),
+            playerNameInput: $('playerNameInput'),
+            colorPicker: $('colorPicker'),
+            confirmNameBtn: $('confirmNameBtn'),
+            roomCodeDisplay: $('roomCodeDisplay'),
+            qrContainer: $('qrContainer'),
+            timeSettingMini: $('timeSettingMini'),
+            timeValueMini: $('timeValueMini'),
+            timeUpMini: $('timeUpMini'),
+            timeDownMini: $('timeDownMini'),
+            waitingPlayersList: $('waitingPlayersList'),
+            startGameBtn: $('startGameBtn'),
+            leaveRoomBtn: $('leaveRoomBtn'),
+            genNumber: $('genNumber'),
+            gameTimer: $('gameTimer'),
+            playersStrip: $('playersStrip'),
+            currentPlayerName: $('currentPlayerName'),
+            currentPlayerLabel: $('currentPlayerLabel'),
+            timerText: $('timerText'),
+            timerProgress: $('timerProgress'),
+            passBtn: $('passBtn'),
+            passGenBtn: $('passGenBtn'),
+            adminTimeBtn: $('adminTimeBtn'),
+            adminOverlay: $('adminOverlay'),
+            overlayTitle: $('overlayTitle'),
+            overlayText: $('overlayText'),
+            resumeBtn: $('resumeBtn'),
+            menuBtn: $('menuBtn'),
+            hostPanel: $('hostPanel'),
+            hostPanelBackdrop: $('hostPanelBackdrop'),
+            closePanelBtn: $('closePanelBtn'),
+            hostOnlySection: $('hostOnlySection'),
+            hostSoundSection: $('hostSoundSection'),
+            nextGenBtn: $('nextGenBtn'),
+            forceNextBtn: $('forceNextBtn'),
+            hostAdminBtn: $('hostAdminBtn'),
+            muteBtn: $('muteBtn'),
+            leaveGameBtn: $('leaveGameBtn'),
+            roomCodeSmall: $('roomCodeSmall'),
+            scanQRBtn: $('scanQRBtn'),
+            qrScannerModal: $('qrScannerModal'),
+            closeQRScannerBtn: $('closeQRScannerBtn'),
+            stopQRScannerBtn: $('stopQRScannerBtn'),
+            qrReader: $('qr-reader')
+        };
+        
+        // =============================================
+        // UTILITY FUNCTIONS
+        // =============================================
+        function generateRoomCode() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+            let code = '';
+            for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
+            return code;
+        }
+        
+        function generatePlayerId() {
+            return 'p_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+        }
+        
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            $(screenId).classList.add('active');
+        }
+        
+        function formatTime(seconds) {
+            const abs = Math.abs(Math.ceil(seconds));
+            const mins = Math.floor(abs / 60);
+            const secs = abs % 60;
+            const sign = seconds < 0 ? '-' : '';
+            return mins > 0 ? `${sign}${mins}:${secs.toString().padStart(2, '0')}` : `${sign}${secs}`;
+        }
+        
+        function formatGameTime(seconds) {
+            const hrs = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            if (hrs > 0) return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        // Get Polish ordinal for generation number
+        function getPolishOrdinal(num) {
+            if (POLISH_ORDINALS[num]) return POLISH_ORDINALS[num];
+            return num.toString();
+        }
+        
+        // =============================================
+        // AUDIO (HOST ONLY!) - SOUND EFFECTS
+        // =============================================
+        async function initAudio() {
+            console.log('[AUDIO] Initializing audio system...');
+            
+            // Initialize AudioContext
+            if (!state.audioContext) {
+                try {
+                    state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    console.log('[AUDIO] AudioContext created, state:', state.audioContext.state);
+                } catch (e) {
+                    console.error('[AUDIO] Failed to create AudioContext:', e);
+                }
+            }
+            
+            // Resume AudioContext if suspended
+            if (state.audioContext && state.audioContext.state === 'suspended') {
+                try {
+                    await state.audioContext.resume();
+                    console.log('[AUDIO] AudioContext resumed, state:', state.audioContext.state);
+                } catch (e) {
+                    console.error('[AUDIO] Failed to resume AudioContext:', e);
+                }
+            }
+            
+            // CRITICAL: Unlock TTS
+            await TTS.unlock();
+            
+            console.log('[AUDIO] Audio initialization complete');
+        }
+        
+        function playBeep(freq = 800, dur = 150, type = 'sine', volume = 0.3) {
+            if (!state.isHost || !state.audioContext || state.isMuted) return;
+            
+            try {
+                // Resume context if suspended
+                if (state.audioContext.state === 'suspended') {
+                    state.audioContext.resume();
+                }
+                
+                const osc = state.audioContext.createOscillator();
+                const gain = state.audioContext.createGain();
+                osc.connect(gain);
+                gain.connect(state.audioContext.destination);
+                osc.frequency.value = freq;
+                osc.type = type;
+                gain.gain.setValueAtTime(volume, state.audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, state.audioContext.currentTime + dur / 1000);
+                osc.start(state.audioContext.currentTime);
+                osc.stop(state.audioContext.currentTime + dur / 1000);
+            } catch (e) {
+                console.warn('[AUDIO] Beep error:', e);
+            }
+        }
+        
+        // Sound: Turn start (when switching to new player)
+        function playTurnStart() {
+            console.log('[AUDIO] Playing turn start sound');
+            playBeep(600, 100);
+            setTimeout(() => playBeep(800, 150), 120);
+        }
+        
+        // Sound: 5-second warning
+        function playWarning() {
+            console.log('[AUDIO] Playing 5s warning');
+            playBeep(880, 150, 'sine', 0.4);
+        }
+        
+        // Sound: Time's up
+        function playTimeUp() {
+            console.log('[AUDIO] Playing time up sound');
+            playBeep(300, 300, 'sawtooth', 0.5);
+            setTimeout(() => playBeep(250, 400, 'sawtooth', 0.5), 350);
+        }
+        
+        // =============================================
+        // WAKE LOCK API
+        // =============================================
+        let wakeLock = null;
+        
+        async function requestWakeLock() {
+            if (!('wakeLock' in navigator)) return;
+            
+            if (wakeLock !== null) {
+                try {
+                    await wakeLock.release();
+                    wakeLock = null;
+                } catch (e) {}
+            }
+            
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+                console.log('[WAKE] Wake Lock acquired');
+                
+                wakeLock.addEventListener('release', () => {
+                    console.log('[WAKE] Wake Lock released');
+                    wakeLock = null;
+                });
+            } catch (err) {
+                console.log('[WAKE] Wake Lock error:', err.name, err.message);
+            }
+        }
+        
+        document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState === 'visible') {
+                console.log('[VISIBILITY] Page visible again');
+                await requestWakeLock();
+                
+                if (state.audioContext && state.audioContext.state === 'suspended') {
+                    state.audioContext.resume();
+                }
+            }
+        });
+        
+        // =============================================
+        // LOCAL STORAGE (Auto-Reconnect)
+        // =============================================
+        function saveSession() {
+            localStorage.setItem('marsTimer_session', JSON.stringify({
+                roomId: state.roomId,
+                playerId: state.playerId,
+                playerName: state.playerName,
+                playerColor: state.playerColor,
+                isHost: state.isHost
+            }));
+        }
+        
+        function loadSession() {
+            try {
+                const saved = localStorage.getItem('marsTimer_session');
+                if (saved) return JSON.parse(saved);
+            } catch(e) {}
+            return null;
+        }
+        
+        function clearSession() {
+            localStorage.removeItem('marsTimer_session');
+        }
+        
+        // =============================================
+        // QR CODE
+        // =============================================
+        function generateQR(code) {
+            if (!code || code.length !== 4) {
+                console.warn('[QR] Invalid room code:', code);
+                return;
+            }
+            
+            el.qrContainer.innerHTML = '<div style="color: #999; font-size: 0.8rem;">Ładowanie QR...</div>';
+            const baseUrl = window.location.href.split('?')[0];
+            const url = baseUrl + '?room=' + code;
+            
+            // Aktualizuj canonical URL dla lepszego skanowania QR
+            const canonicalLink = document.getElementById('canonical-url');
+            if (canonicalLink) {
+                canonicalLink.href = url;
+            }
+            
+            // Aktualizuj meta tagi dla lepszego skanowania QR bezpośrednio z aparatu
+            updateMetaTags(url);
+            
+            if (typeof QRCode !== 'undefined') {
+                QRCode.toCanvas(url, { width: 180, margin: 2, errorCorrectionLevel: 'M' }, (err, canvas) => {
+                    if (!err && canvas) {
+                        el.qrContainer.innerHTML = '';
+                        el.qrContainer.appendChild(canvas);
+                        // Dodaj etykietę pod kodem QR
+                        const label = document.createElement('div');
+                        label.className = 'qr-container-label';
+                        label.textContent = 'Zeskanuj, aby dołączyć';
+                        el.qrContainer.appendChild(label);
+                    } else {
+                        console.error('[QR] Error generating QR code:', err);
+                        el.qrContainer.innerHTML = '<div style="color: #f43f5e; font-size: 0.8rem;">Błąd generowania QR</div>';
+                    }
+                });
+            } else {
+                el.qrContainer.innerHTML = '<div style="color: #f43f5e; font-size: 0.8rem;">Biblioteka QR nie załadowana</div>';
+            }
+        }
+        
+        function updateMetaTags(url) {
+            // Aktualizuj meta tagi dla lepszego skanowania QR bezpośrednio z aparatu
+            let ogUrl = document.querySelector('meta[property="og:url"]');
+            if (!ogUrl) {
+                ogUrl = document.createElement('meta');
+                ogUrl.setAttribute('property', 'og:url');
+                document.head.appendChild(ogUrl);
+            }
+            ogUrl.setAttribute('content', url);
+        }
+        
+        // =============================================
+        // QR SCANNER
+        // =============================================
+        async function startQRScanner() {
+            if (!('Html5Qrcode' in window)) {
+                alert('Skaner QR nie jest dostępny. Upewnij się, że masz połączenie z internetem.');
+                return;
+            }
+            
+            el.qrScannerModal.classList.add('active');
+            el.qrReader.innerHTML = '';
+            
+            try {
+                state.qrScanner = new Html5Qrcode('qr-reader');
+                
+                // Konfiguracja dla urządzeń mobilnych
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                const qrboxSize = isMobile ? Math.min(250, window.innerWidth * 0.8) : 250;
+                
+                const config = {
+                    fps: 10,
+                    qrbox: { width: qrboxSize, height: qrboxSize },
+                    aspectRatio: 1.0,
+                    disableFlip: false,
+                    videoConstraints: {
+                        facingMode: 'environment' // Użyj tylnej kamery na urządzeniach mobilnych
+                    }
+                };
+                
+                await state.qrScanner.start(
+                    { facingMode: 'environment' },
+                    config,
+                    (decodedText, decodedResult) => {
+                        // Sukces - znaleziono kod QR
+                        handleScannedQR(decodedText);
+                    },
+                    (errorMessage) => {
+                        // Błąd skanowania (ignorujemy, bo to ciągły proces)
+                        // console.log('[QR Scanner] Scan error:', errorMessage);
+                    }
+                );
+            } catch (err) {
+                console.error('[QR Scanner] Error:', err);
+                let errorMsg = 'Nie można uruchomić kamery. ';
+                if (err.name === 'NotAllowedError') {
+                    errorMsg += 'Sprawdź uprawnienia do kamery w ustawieniach przeglądarki.';
+                } else if (err.name === 'NotFoundError') {
+                    errorMsg += 'Nie znaleziono kamery.';
+                } else {
+                    errorMsg += 'Sprawdź uprawnienia do kamery.';
+                }
+                alert(errorMsg);
+                stopQRScanner();
+            }
+        }
+        
+        function stopQRScanner() {
+            if (state.qrScanner) {
+                state.qrScanner.stop().then(() => {
+                    state.qrScanner.clear();
+                    state.qrScanner = null;
+                    el.qrScannerModal.classList.remove('active');
+                    el.qrReader.innerHTML = '';
+                }).catch((err) => {
+                    console.error('[QR Scanner] Stop error:', err);
+                    state.qrScanner = null;
+                    el.qrScannerModal.classList.remove('active');
+                    el.qrReader.innerHTML = '';
+                });
+            } else {
+                el.qrScannerModal.classList.remove('active');
+                el.qrReader.innerHTML = '';
+            }
+        }
+        
+        function handleScannedQR(decodedText) {
+            console.log('[QR Scanner] Scanned:', decodedText);
+            
+            let roomCode = null;
+            
+            // Parsuj URL - szukamy parametru ?room=
+            try {
+                // Spróbuj jako pełny URL
+                const url = new URL(decodedText);
+                roomCode = url.searchParams.get('room');
+            } catch (e) {
+                // Jeśli nie jest to pełny URL, spróbuj wyciągnąć kod z tekstu
+                const match = decodedText.match(/room=([A-Z]{4})/i) || decodedText.match(/[?&]room=([A-Z]{4})/i);
+                if (match && match[1]) {
+                    roomCode = match[1].toUpperCase();
+                } else {
+                    // Ostatnia próba - może to jest sam kod (4 duże litery)
+                    const codeMatch = decodedText.match(/^([A-Z]{4})$/);
+                    if (codeMatch && codeMatch[1]) {
+                        roomCode = codeMatch[1];
+                    }
+                }
+            }
+            
+            if (roomCode && roomCode.length === 4 && /^[A-Z]{4}$/.test(roomCode)) {
+                // Zatrzymaj skaner
+                stopQRScanner();
+                
+                // Automatycznie dołącz do pokoju
+                joinRoom(roomCode);
+            } else {
+                // Nieprawidłowy kod - pokaż komunikat, ale nie zatrzymuj skanera
+                console.warn('[QR Scanner] Invalid QR code:', decodedText);
+                // Możemy pokazać krótki komunikat, ale nie alert (żeby nie przerywać skanowania)
+            }
+        }
+        
+        // =============================================
+        // FIREBASE: ROOM MANAGEMENT
+        // =============================================
+        async function createRoom() {
+            // CRITICAL: Initialize audio on user gesture
+            await initAudio();
+            
+            const roomCode = generateRoomCode();
+            state.roomId = roomCode;
+            state.playerId = generatePlayerId();
+            state.isHost = true;
+            
+            const roomRef = ref(db, `rooms/${roomCode}`);
+            await set(roomRef, {
+                host: state.playerId,
+                state: 'waiting',
+                turnDuration: state.turnDuration,
+                createdAt: serverTimestamp()
+            });
+            
+            showNameModal();
+        }
+        
+        async function joinRoom(code) {
+            // Initialize audio on user gesture (for future host promotion)
+            await initAudio();
+            
+            const roomCode = code.toUpperCase();
+            const roomRef = ref(db, `rooms/${roomCode}`);
+            const snapshot = await get(roomRef);
+            
+            if (!snapshot.exists()) {
+                alert('Nie znaleziono pokoju o tym kodzie!');
+                return false;
+            }
+            
+            const roomData = snapshot.val();
+            if (roomData.state !== 'waiting') {
+                alert('Gra już się rozpoczęła!');
+                return false;
+            }
+            
+            state.roomId = roomCode;
+            state.playerId = generatePlayerId();
+            state.isHost = false;
+            state.turnDuration = roomData.turnDuration || 45;
+            
+            showNameModal();
+            return true;
+        }
+        
+        function showNameModal() {
+            el.nameModal.classList.add('active');
+            el.playerNameInput.focus();
+        }
+        
+        async function confirmPlayer() {
+            const name = el.playerNameInput.value.trim();
+            if (!name) {
+                alert('Wpisz swoje imię!');
+                return;
+            }
+            
+            // Re-unlock audio on this user gesture
+            await initAudio();
+            
+            state.playerName = name;
+            
+            const playersRef = ref(db, `rooms/${state.roomId}/players`);
+            const snapshot = await get(playersRef);
+            const existingPlayers = snapshot.exists() ? Object.keys(snapshot.val()).length : 0;
+            
+            const playerRef = ref(db, `rooms/${state.roomId}/players/${state.playerId}`);
+            await set(playerRef, {
+                name: state.playerName,
+                color: state.playerColor,
+                passedGen: false,
+                online: true,
+                order: existingPlayers,
+                isHost: state.isHost
+            });
+            
+            onDisconnect(playerRef).update({ online: false });
+            
+            el.nameModal.classList.remove('active');
+            saveSession();
+            
+            if (state.isHost) {
+                document.body.classList.add('is-host');
+                el.hostOnlySection.style.display = 'block';
+                el.hostSoundSection.style.display = 'block';
+                el.timeSettingMini.style.display = 'flex';
+            }
+            
+            enterWaitingRoom();
+        }
+        
+        function enterWaitingRoom() {
+            showScreen('waitingScreen');
+            el.roomCodeDisplay.textContent = state.roomId;
+            el.roomCodeSmall.textContent = state.roomId;
+            el.timeValueMini.textContent = state.turnDuration;
+            generateQR(state.roomId);
+            
+            const roomRef = ref(db, `rooms/${state.roomId}`);
+            const unsubRoom = onValue(roomRef, (snapshot) => {
+                if (!snapshot.exists()) {
+                    alert('Pokój został zamknięty');
+                    leaveRoom();
+                    return;
+                }
+                
+                const data = snapshot.val();
+                state.players = data.players || {};
+                state.turnDuration = data.turnDuration || 45;
+                el.timeValueMini.textContent = state.turnDuration;
+                
+                updateWaitingPlayersList();
+                updateStartButton();
+                
+                if (data.state === 'playing') {
+                    startGameListener();
+                }
+            });
+            unsubscribers.push(() => off(roomRef));
+            
+            if (state.isHost) {
+                el.startGameBtn.textContent = 'Rozpocznij grę';
+            } else {
+                el.startGameBtn.textContent = 'Czekam na hosta...';
+                el.startGameBtn.disabled = true;
+            }
+        }
+        
+        function updateWaitingPlayersList() {
+            const players = Object.entries(state.players).sort((a, b) => a[1].order - b[1].order);
+            el.waitingPlayersList.innerHTML = players.map(([id, p], index) => {
+                const isHost = state.isHost;
+                const canMoveUp = isHost && index > 0;
+                const canMoveDown = isHost && index < players.length - 1;
+                
+                return `
+                    <div class="player-waiting-item ${!p.online ? 'offline' : ''}" data-player-id="${id}">
+                        <div class="player-waiting-color" style="background: ${COLOR_HEX[p.color]}"></div>
+                        <div class="player-waiting-name">${p.name}</div>
+                        ${p.isHost ? '<div class="player-waiting-host">Host</div>' : ''}
+                        ${id === state.playerId ? '<div class="player-waiting-you">Ty</div>' : ''}
+                        ${isHost ? `
+                            <div class="player-order-controls">
+                                <button type="button" class="order-btn order-btn-up" ${!canMoveUp ? 'disabled' : ''} data-action="up" data-player-id="${id}" aria-label="Przenieś w górę">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="18 15 12 9 6 15"></polyline>
+                                    </svg>
+                                </button>
+                                <button type="button" class="order-btn order-btn-down" ${!canMoveDown ? 'disabled' : ''} data-action="down" data-player-id="${id}" aria-label="Przenieś w dół">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        async function movePlayerOrder(playerId, direction) {
+            if (!state.isHost) return;
+            
+            try {
+                const players = Object.entries(state.players).sort((a, b) => a[1].order - b[1].order);
+                const currentIndex = players.findIndex(([id]) => id === playerId);
+                
+                if (currentIndex === -1) return;
+                
+                const newIndex = currentIndex + direction;
+                if (newIndex < 0 || newIndex >= players.length) return;
+                
+                // Swap orders
+                const currentPlayer = players[currentIndex];
+                const targetPlayer = players[newIndex];
+                
+                const updates = {};
+                updates[`players/${currentPlayer[0]}/order`] = targetPlayer[1].order;
+                updates[`players/${targetPlayer[0]}/order`] = currentPlayer[1].order;
+                
+                await update(ref(db, `rooms/${state.roomId}`), updates);
+            } catch (error) {
+                console.error('[ORDER] Error moving player order:', error);
+            }
+        }
+        
+        function updateStartButton() {
+            if (!state.isHost) return;
+            const onlinePlayers = Object.values(state.players).filter(p => p.online).length;
+            el.startGameBtn.disabled = onlinePlayers < 2;
+            el.startGameBtn.textContent = onlinePlayers < 2 ? 'Minimum 2 graczy' : 'Rozpocznij grę';
+        }
+        
+        async function updateTurnDuration(delta) {
+            if (!state.isHost) return;
+            state.turnDuration = Math.max(15, Math.min(180, state.turnDuration + delta));
+            await update(ref(db, `rooms/${state.roomId}`), { turnDuration: state.turnDuration });
+        }
+        
+        async function startGame() {
+            if (!state.isHost) return;
+            
+            // Re-init audio
+            await initAudio();
+            
+            const players = Object.entries(state.players)
+                .filter(([id, p]) => p.online)
+                .sort((a, b) => a[1].order - b[1].order);
+            const playerIds = players.map(([id]) => id);
+            
+            const turnStartTime = Date.now();
+            
+            await update(ref(db, `rooms/${state.roomId}`), {
+                state: 'playing',
+                generation: 1,
+                currentPlayerIndex: 0,
+                startPlayerIndex: 0,
+                playerOrder: playerIds,
+                turnStartTime: turnStartTime,
+                turnDuration: state.turnDuration,
+                isPaused: false,
+                gameStartTime: Date.now()
+            });
+            
+            // Mark this turn as announced
+            state.lastAnnouncedTurnTime = turnStartTime;
+            state.lastAnnouncedGeneration = 1;
+            
+            // Announce first player
+            const firstPlayer = players[0][1];
+            console.log('[GAME] Starting game, first player:', firstPlayer.name);
+            playTurnStart();
+            TTS.speak(firstPlayer.name);
+        }
+        
+        function startGameListener() {
+            showScreen('gameScreen');
+            requestWakeLock();
+            
+            if (state.localTimerInterval) clearInterval(state.localTimerInterval);
+            if (state.gameTimerInterval) clearInterval(state.gameTimerInterval);
+            
+            // Reset state
+            state.warningPlayed = false;
+            state.timeUpPlayed = false;
+            
+            const roomRef = ref(db, `rooms/${state.roomId}`);
+            const unsubGame = onValue(roomRef, (snapshot) => {
+                if (!snapshot.exists()) {
+                    leaveRoom();
+                    return;
+                }
+                
+                const data = snapshot.val();
+                const prevGameState = state.gameState;
+                
+                state.gameState = data;
+                state.players = data.players || {};
+                
+                if (data.state === 'playing') {
+                    updateGameUI(data);
+
+                    // =============================================
+                    // Host-only: detect Pass Gen changes from ANY player
+                    // and announce accordingly ("X spasował" or "Koniec pokolenia N")
+                    // =============================================
+                    if (state.isHost && prevGameState && prevGameState.players && data.players && !data.isPaused) {
+                        const playerOrder = data.playerOrder || [];
+                        const newlyPassed = playerOrder.filter(pid => {
+                            const before = !!prevGameState.players?.[pid]?.passedGen;
+                            const after = !!data.players?.[pid]?.passedGen;
+                            return !before && after;
+                        });
+
+                        if (newlyPassed.length > 0) {
+                            // Cancel any pending "turn announce" from the previous snapshot,
+                            // otherwise it can fire right after "X spasował" and repeat the old player.
+                            if (state.pendingTurnAnnounceTimeoutId) {
+                                clearTimeout(state.pendingTurnAnnounceTimeoutId);
+                                state.pendingTurnAnnounceTimeoutId = null;
+                            }
+
+                            const activeRemaining = playerOrder.filter(pid => !data.players?.[pid]?.passedGen).length;
+
+                            if (activeRemaining === 0) {
+                                // Last active player passed -> end generation (priority)
+                                TTS.speak(`Koniec pokolenia ${data.generation || 1}`);
+                                // Host also pauses the game for end-of-generation overlay
+                                update(ref(db, `rooms/${state.roomId}`), {
+                                    isPaused: true,
+                                    overlayTitle: 'Koniec pokolenia ' + (data.generation || 1),
+                                    overlayText: 'Wszyscy spasowali',
+                                    overlayButton: '🚀 Następne Pokolenie'
+                                }).catch(() => {});
+                            } else {
+                                // Announce each newly passed player (usually one)
+                                newlyPassed.forEach(pid => {
+                                    const p = data.players?.[pid];
+                                    if (p?.name) {
+                                        TTS.speak(`${p.name} spasował`);
+                                    }
+                                });
+                                // Defer the next "turn start" announcement to avoid overlap
+                                state.deferNextTurnAnnouncementUntil = Date.now() + 1400;
+
+                                // Advance to next active player (host authoritative)
+                                let nextIndex = data.currentPlayerIndex ?? 0;
+                                let attempts = 0;
+                                do {
+                                    nextIndex = (nextIndex + 1) % playerOrder.length;
+                                    attempts++;
+                                } while (data.players?.[playerOrder[nextIndex]]?.passedGen && attempts < playerOrder.length);
+
+                                const newTurnTime = Date.now();
+                                update(ref(db, `rooms/${state.roomId}`), {
+                                    currentPlayerIndex: nextIndex,
+                                    turnStartTime: newTurnTime
+                                }).catch(() => {});
+                            }
+                        }
+                    }
+                    
+                    // =============================================
+                    // KLUCZOWA LOGIKA: Wykrywanie zmiany tury przez turnStartTime
+                    // To działa nawet gdy index wraca do 0!
+                    // =============================================
+                    if (state.isHost && data.turnStartTime && !data.isPaused) {
+                        const turnTimeChanged = data.turnStartTime !== state.lastAnnouncedTurnTime;
+                        const generationChanged = data.generation !== state.lastAnnouncedGeneration;
+                        
+                        console.log('[TURN CHECK] turnStartTime:', data.turnStartTime, 
+                                    'lastAnnounced:', state.lastAnnouncedTurnTime,
+                                    'changed:', turnTimeChanged);
+                        
+                        if (turnTimeChanged) {
+                            // Nowa tura! Ogłoś gracza
+                            const playerOrder = data.playerOrder || [];
+                            const currentPlayerId = playerOrder[data.currentPlayerIndex];
+                            const currentPlayer = data.players?.[currentPlayerId];
+                            
+                            if (currentPlayer) {
+                                // If the "current player" has already passed the generation,
+                                // never announce them as the active turn (wait/advance to a non-passed player).
+                                if (currentPlayer.passedGen) {
+                                    console.log('[TURN] Current player already passedGen, skipping announce:', currentPlayer.name);
+                                    // Host can self-heal by advancing to next active (no speech here).
+                                    const remaining = playerOrder.filter(pid => !data.players?.[pid]?.passedGen).length;
+                                    if (remaining > 0) {
+                                        let nextIndex = data.currentPlayerIndex ?? 0;
+                                        let attempts = 0;
+                                        do {
+                                            nextIndex = (nextIndex + 1) % playerOrder.length;
+                                            attempts++;
+                                        } while (data.players?.[playerOrder[nextIndex]]?.passedGen && attempts < playerOrder.length);
+                                        update(ref(db, `rooms/${state.roomId}`), {
+                                            currentPlayerIndex: nextIndex,
+                                            turnStartTime: Date.now()
+                                        }).catch(() => {});
+                                    }
+                                    state.lastAnnouncedTurnTime = data.turnStartTime;
+                                    return;
+                                }
+
+                                console.log('[TURN] New turn detected! Player:', currentPlayer.name, 
+                                           'Index:', data.currentPlayerIndex);
+                                
+                                // Reset warning flags for new turn
+                                state.warningPlayed = false;
+                                state.timeUpPlayed = false;
+                                
+                                // Announce player (delay can be extended if we just announced "X spasował")
+                                const baseDelay = 100;
+                                const now = Date.now();
+                                const extraDelay = (state.deferNextTurnAnnouncementUntil && now < state.deferNextTurnAnnouncementUntil)
+                                    ? (state.deferNextTurnAnnouncementUntil - now)
+                                    : 0;
+                                // Ensure only the latest turn announcement fires
+                                if (state.pendingTurnAnnounceTimeoutId) {
+                                    clearTimeout(state.pendingTurnAnnounceTimeoutId);
+                                }
+                                state.pendingTurnAnnounceTimeoutId = setTimeout(() => {
+                                    playTurnStart();
+                                    TTS.speak(currentPlayer.name);
+                                    state.pendingTurnAnnounceTimeoutId = null;
+                                }, baseDelay + extraDelay);
+                            }
+                            
+                            // Mark as announced
+                            state.lastAnnouncedTurnTime = data.turnStartTime;
+                        }
+                        
+                        // Track generation changes separately
+                        if (generationChanged) {
+                            state.lastAnnouncedGeneration = data.generation;
+                        }
+                    }
+                    
+                } else if (data.state === 'waiting') {
+                    enterWaitingRoom();
+                }
+            });
+            unsubscribers.push(() => off(roomRef));
+            
+            // Timer loop
+            state.localTimerInterval = setInterval(() => {
+                if (!state.gameState || state.gameState.isPaused) return;
+                
+                const now = Date.now();
+                const elapsed = (now - state.gameState.turnStartTime) / 1000;
+                const remaining = state.gameState.turnDuration - elapsed;
+                
+                updateTimerDisplay(remaining);
+                
+                // Warning sounds (host only)
+                if (state.isHost && !state.isMuted) {
+                    // 5 second warning
+                    if (remaining <= 5.1 && remaining > 4.5 && !state.warningPlayed) {
+                        playWarning();
+                        state.warningPlayed = true;
+                    }
+                    
+                    // Time up
+                    if (remaining <= 0.1 && remaining > -0.5 && !state.timeUpPlayed) {
+                        playTimeUp();
+                        state.timeUpPlayed = true;
+                    }
+                }
+            }, 50);
+            
+            // Game timer
+            state.gameTimerInterval = setInterval(() => {
+                if (!state.gameState || !state.gameState.gameStartTime) return;
+                const elapsed = Math.floor((Date.now() - state.gameState.gameStartTime) / 1000);
+                el.gameTimer.textContent = formatGameTime(elapsed);
+            }, 1000);
+        }
+        
+        function updateTimerDisplay(remaining) {
+            el.timerText.textContent = formatTime(remaining);
+            
+            const progress = Math.min(1, Math.max(0, (state.gameState.turnDuration - remaining) / state.gameState.turnDuration));
+            const circumference = 2 * Math.PI * 130;
+            el.timerProgress.style.strokeDashoffset = circumference * (1 - progress);
+            
+            el.timerText.classList.toggle('overtime', remaining < 0);
+            el.timerText.classList.toggle('warning', remaining <= 5 && remaining > 0);
+            el.timerProgress.classList.toggle('overtime', remaining < 0);
+        }
+        
+        function updateGameUI(data) {
+            el.genNumber.textContent = data.generation || 1;
+            
+            const playerOrder = data.playerOrder || [];
+            const currentPlayerId = playerOrder[data.currentPlayerIndex];
+            const currentPlayer = data.players?.[currentPlayerId];
+            
+            if (currentPlayer) {
+                el.currentPlayerName.textContent = currentPlayer.name;
+                el.currentPlayerName.style.color = COLOR_HEX[currentPlayer.color];
+                
+                const isMyTurn = currentPlayerId === state.playerId;
+                el.currentPlayerLabel.textContent = isMyTurn ? 'Twoja tura!' : 'Tura gracza';
+                
+                el.passBtn.disabled = !isMyTurn || data.isPaused;
+                el.passGenBtn.disabled = !isMyTurn || data.isPaused;
+                
+                const timerGradient = document.querySelector('#timerGradient');
+                if (timerGradient) {
+                    timerGradient.innerHTML = `<stop offset="0%" style="stop-color:${COLOR_HEX[currentPlayer.color]}"/><stop offset="100%" style="stop-color:${COLOR_HEX[currentPlayer.color]}"/>`;
+                }
+                el.passBtn.style.background = `linear-gradient(135deg, ${COLOR_HEX[currentPlayer.color]}, ${COLOR_HEX[currentPlayer.color]})`;
+                el.passBtn.style.boxShadow = `0 8px 32px ${COLOR_HEX[currentPlayer.color]}66`;
+            }
+            
+            // Players strip
+            const startIndex = data.startPlayerIndex || 0;
+            const orderedPlayers = [];
+            for (let i = 0; i < playerOrder.length; i++) {
+                const idx = (startIndex + i) % playerOrder.length;
+                const pid = playerOrder[idx];
+                const p = data.players?.[pid];
+                if (p) orderedPlayers.push({ id: pid, ...p, originalIndex: idx });
+            }
+            
+            el.playersStrip.innerHTML = orderedPlayers.map(p => {
+                let statusClass = '';
+                let statusText = '';
+                if (p.passedGen) { statusClass = 'passed-gen'; statusText = 'GEN'; }
+                else if (p.id === currentPlayerId) { statusClass = 'active'; }
+                if (!p.online) statusClass += ' offline';
+                
+                return `<div class="player-chip ${statusClass}">
+                    <div class="player-chip-dot" style="background: ${COLOR_HEX[p.color]}"></div>
+                    <span>${p.name}</span>
+                    ${statusText ? `<span class="player-chip-status">${statusText}</span>` : ''}
+                </div>`;
+            }).join('');
+            
+            // Admin overlay
+            if (data.isPaused) {
+                el.adminOverlay.classList.add('active');
+                el.overlayTitle.textContent = data.overlayTitle || 'Admin Time';
+                el.overlayText.textContent = data.overlayText || 'Gra wstrzymana';
+                el.resumeBtn.textContent = data.overlayButton || 'Wznów grę';
+            } else {
+                el.adminOverlay.classList.remove('active');
+            }
+            
+            // Next gen button
+            const allPassed = playerOrder.every(pid => data.players?.[pid]?.passedGen);
+            el.nextGenBtn.style.display = allPassed && state.isHost ? 'block' : 'none';
+            
+            el.adminTimeBtn.classList.toggle('active', data.isPaused);
+        }
+        
+        // =============================================
+        // GAME ACTIONS
+        // =============================================
+        
+        // Regular PASS
+        async function pass() {
+            if (!state.gameState) return;
+            
+            const playerOrder = state.gameState.playerOrder;
+            const currentPlayerId = playerOrder[state.gameState.currentPlayerIndex];
+            
+            if (currentPlayerId !== state.playerId) return;
+            
+            // Find next active player
+            let nextIndex = state.gameState.currentPlayerIndex;
+            let attempts = 0;
+            do {
+                nextIndex = (nextIndex + 1) % playerOrder.length;
+                attempts++;
+            } while (state.players[playerOrder[nextIndex]]?.passedGen && attempts < playerOrder.length);
+            
+            // WAŻNE: Użyj NOWEGO turnStartTime jako unikalnego markera!
+            const newTurnTime = Date.now();
+            
+            console.log('[PASS] Passing turn. Current:', state.gameState.currentPlayerIndex, 
+                       '-> Next:', nextIndex, 'NewTurnTime:', newTurnTime);
+            
+            // Update state - NIE ogłaszamy tutaj, ogłoszenie będzie przez Firebase listener
+            // To zapewnia że ogłoszenie działa nawet gdy inny gracz klika PASS
+            await update(ref(db, `rooms/${state.roomId}`), {
+                currentPlayerIndex: nextIndex,
+                turnStartTime: newTurnTime
+            });
+        }
+        
+        // PASS GEN
+        async function passGen() {
+            if (!state.gameState) return;
+            
+            const playerOrder = state.gameState.playerOrder;
+            const currentPlayerId = playerOrder[state.gameState.currentPlayerIndex];
+            
+            if (currentPlayerId !== state.playerId) return;
+            
+            // Mark current player as passed
+            await update(ref(db, `rooms/${state.roomId}/players/${state.playerId}`), {
+                passedGen: true
+            });
+            // Room flow (advancing turn / ending generation) is handled by the HOST via the Firebase listener.
+        }
+        
+        // NEXT GENERATION
+        async function nextGeneration() {
+            if (!state.isHost || !state.gameState) return;
+            
+            const playerOrder = state.gameState.playerOrder;
+            const newGeneration = state.gameState.generation + 1;
+            const newStartIndex = (state.gameState.startPlayerIndex + 1) % playerOrder.length;
+            
+            const firstPlayerId = playerOrder[newStartIndex];
+            const firstPlayer = state.players[firstPlayerId];
+            
+            // Announce generation FIRST
+            const ordinal = getPolishOrdinal(newGeneration);
+            TTS.speak(`Pokolenie ${ordinal}`);
+            
+            // Set turn time in future for delay
+            const newTurnTime = Date.now() + 2500;
+            
+            // Mark as announced so listener doesn't double-announce
+            state.lastAnnouncedTurnTime = newTurnTime;
+            state.lastAnnouncedGeneration = newGeneration;
+            
+            const updates = {
+                generation: newGeneration,
+                currentPlayerIndex: newStartIndex,
+                startPlayerIndex: newStartIndex,
+                turnStartTime: newTurnTime,
+                isPaused: false
+            };
+            
+            playerOrder.forEach(pid => {
+                updates[`players/${pid}/passedGen`] = false;
+            });
+            
+            await update(ref(db, `rooms/${state.roomId}`), updates);
+            
+            // Announce first player after delay
+            setTimeout(() => {
+                playTurnStart();
+                TTS.speak(firstPlayer?.name);
+            }, 2500);
+        }
+        
+        // ADMIN TIME
+        async function toggleAdminTime() {
+            if (!state.isHost || !state.gameState) return;
+            
+            const isPaused = !state.gameState.isPaused;
+            
+            if (isPaused) {
+                // Pausing
+                TTS.speak('Admin time');
+                
+                await update(ref(db, `rooms/${state.roomId}`), {
+                    isPaused: true,
+                    pausedAt: Date.now(),
+                    overlayTitle: 'Admin Time',
+                    overlayText: 'Gra wstrzymana',
+                    overlayButton: 'Wznów grę'
+                });
+            } else {
+                // Resuming
+                const pauseDuration = Date.now() - (state.gameState.pausedAt || Date.now());
+                const newTurnTime = state.gameState.turnStartTime + pauseDuration;
+                
+                // Mark as announced so we don't re-announce current player
+                state.lastAnnouncedTurnTime = newTurnTime;
+                
+                await update(ref(db, `rooms/${state.roomId}`), {
+                    isPaused: false,
+                    turnStartTime: newTurnTime
+                });
+            }
+        }
+        
+        // FORCE NEXT TURN
+        async function forceNextTurn() {
+            if (!state.isHost || !state.gameState) return;
+            
+            const playerOrder = state.gameState.playerOrder;
+            let nextIndex = state.gameState.currentPlayerIndex;
+            let attempts = 0;
+            
+            do {
+                nextIndex = (nextIndex + 1) % playerOrder.length;
+                attempts++;
+            } while (state.players[playerOrder[nextIndex]]?.passedGen && attempts < playerOrder.length);
+            
+            const newTurnTime = Date.now();
+            
+            console.log('[FORCE NEXT] Forcing next turn. Current:', state.gameState.currentPlayerIndex, 
+                       '-> Next:', nextIndex);
+            
+            // Mark as announced so we announce via listener
+            // Actually no - let the listener handle it for consistency
+            
+            await update(ref(db, `rooms/${state.roomId}`), {
+                currentPlayerIndex: nextIndex,
+                turnStartTime: newTurnTime
+            });
+        }
+        
+        async function leaveRoom() {
+            // Zatrzymaj skaner QR jeśli działa
+            if (state.qrScanner) {
+                stopQRScanner();
+            }
+            
+            unsubscribers.forEach(unsub => unsub());
+            unsubscribers = [];
+            
+            if (state.localTimerInterval) clearInterval(state.localTimerInterval);
+            if (state.gameTimerInterval) clearInterval(state.gameTimerInterval);
+            
+            TTS.stop();
+            
+            if (state.roomId && state.playerId) {
+                try {
+                    if (state.isHost) {
+                        await remove(ref(db, `rooms/${state.roomId}`));
+                    } else {
+                        await remove(ref(db, `rooms/${state.roomId}/players/${state.playerId}`));
+                    }
+                } catch(e) {}
+            }
+            
+            state.roomId = null;
+            state.playerId = null;
+            state.isHost = false;
+            state.gameState = null;
+            state.players = {};
+            state.lastAnnouncedTurnTime = 0;
+            state.lastAnnouncedGeneration = 0;
+            state.warningPlayed = false;
+            state.timeUpPlayed = false;
+            
+            clearSession();
+            document.body.classList.remove('is-host');
+            el.hostOnlySection.style.display = 'none';
+            el.hostSoundSection.style.display = 'none';
+            el.timeSettingMini.style.display = 'none';
+            showScreen('lobbyScreen');
+            el.joinForm.classList.remove('active');
+        }
+        
+        // =============================================
+        // HOLD FOR PASS GEN
+        // =============================================
+        function startHold() {
+            if (el.passGenBtn.disabled) return;
+            state.holdProgress = 0;
+            const progressFill = el.passGenBtn.querySelector('.progress-fill');
+            state.holdTimeout = setInterval(() => {
+                state.holdProgress += 10;
+                progressFill.style.width = state.holdProgress + '%';
+                if (state.holdProgress >= 100) endHold(true);
+            }, 50);
+        }
+        
+        function endHold(confirmed = false) {
+            if (state.holdTimeout) {
+                clearInterval(state.holdTimeout);
+                state.holdTimeout = null;
+            }
+            el.passGenBtn.querySelector('.progress-fill').style.width = '0%';
+            state.holdProgress = 0;
+            if (confirmed) passGen();
+        }
+        
+        // =============================================
+        // EVENT LISTENERS
+        // =============================================
+        el.createRoomBtn.addEventListener('click', createRoom);
+        
+        el.showJoinBtn.addEventListener('click', () => {
+            el.joinForm.classList.toggle('active');
+            el.joinCodeInput.focus();
+        });
+        
+        el.scanQRBtn.addEventListener('click', startQRScanner);
+        el.closeQRScannerBtn.addEventListener('click', stopQRScanner);
+        el.stopQRScannerBtn.addEventListener('click', stopQRScanner);
+        
+        // Zamknij skaner przy kliknięciu w tło
+        el.qrScannerModal.addEventListener('click', (e) => {
+            if (e.target === el.qrScannerModal) {
+                stopQRScanner();
+            }
+        });
+        
+        el.joinCodeInput.addEventListener('input', (e) => {
+            e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, '');
+        });
+        
+        el.joinRoomBtn.addEventListener('click', () => {
+            const code = el.joinCodeInput.value;
+            if (code.length === 4) joinRoom(code);
+        });
+        
+        el.joinCodeInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && el.joinCodeInput.value.length === 4) joinRoom(el.joinCodeInput.value);
+        });
+        
+        el.colorPicker.addEventListener('click', (e) => {
+            const option = e.target.closest('.color-option');
+            if (option) {
+                document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+                option.classList.add('selected');
+                state.playerColor = option.dataset.color;
+            }
+        });
+        
+        el.confirmNameBtn.addEventListener('click', confirmPlayer);
+        el.playerNameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') confirmPlayer();
+        });
+        
+        el.timeUpMini.addEventListener('click', () => updateTurnDuration(5));
+        el.timeDownMini.addEventListener('click', () => updateTurnDuration(-5));
+        
+        el.startGameBtn.addEventListener('click', startGame);
+        el.leaveRoomBtn.addEventListener('click', leaveRoom);
+        
+        // Delegacja eventów dla przycisków zmiany kolejności graczy (działa na wszystkich urządzeniach mobilnych)
+        let orderButtonTouchStart = null;
+        el.waitingPlayersList.addEventListener('click', (e) => {
+            const btn = e.target.closest('.order-btn');
+            if (!btn || btn.disabled) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const playerId = btn.dataset.playerId;
+            const action = btn.dataset.action;
+            if (action === 'up') {
+                movePlayerOrder(playerId, -1);
+            } else if (action === 'down') {
+                movePlayerOrder(playerId, 1);
+            }
+        });
+        
+        el.waitingPlayersList.addEventListener('touchstart', (e) => {
+            const btn = e.target.closest('.order-btn');
+            if (!btn || btn.disabled) return;
+            orderButtonTouchStart = { btn, time: Date.now(), playerId: btn.dataset.playerId, action: btn.dataset.action };
+            btn.style.opacity = '0.6';
+        }, { passive: true });
+        
+        el.waitingPlayersList.addEventListener('touchend', (e) => {
+            if (!orderButtonTouchStart) return;
+            const btn = orderButtonTouchStart.btn;
+            const touchDuration = Date.now() - orderButtonTouchStart.time;
+            
+            // Sprawdź czy dotyk był na tym samym przycisku i trwał krócej niż 500ms (normalne kliknięcie)
+            const currentBtn = e.target.closest('.order-btn');
+            if (currentBtn === btn && touchDuration < 500 && !btn.disabled) {
+                e.preventDefault();
+                e.stopPropagation();
+                const playerId = orderButtonTouchStart.playerId;
+                const action = orderButtonTouchStart.action;
+                if (action === 'up') {
+                    movePlayerOrder(playerId, -1);
+                } else if (action === 'down') {
+                    movePlayerOrder(playerId, 1);
+                }
+            }
+            
+            btn.style.opacity = '';
+            orderButtonTouchStart = null;
+        }, { passive: false });
+        
+        el.waitingPlayersList.addEventListener('touchcancel', () => {
+            if (orderButtonTouchStart) {
+                orderButtonTouchStart.btn.style.opacity = '';
+                orderButtonTouchStart = null;
+            }
+        }, { passive: true });
+        
+        el.passBtn.addEventListener('click', pass);
+        
+        el.passGenBtn.addEventListener('mousedown', startHold);
+        el.passGenBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startHold(); }, { passive: false });
+        el.passGenBtn.addEventListener('mouseup', () => endHold(false));
+        el.passGenBtn.addEventListener('mouseleave', () => endHold(false));
+        el.passGenBtn.addEventListener('touchend', () => endHold(false));
+        el.passGenBtn.addEventListener('touchcancel', () => endHold(false));
+        
+        el.adminTimeBtn.addEventListener('click', toggleAdminTime);
+        
+        el.resumeBtn.addEventListener('click', () => {
+            if (state.gameState?.overlayButton?.includes('Pokolenie')) {
+                nextGeneration();
+            } else {
+                toggleAdminTime();
+            }
+        });
+        
+        el.menuBtn.addEventListener('click', () => {
+            el.hostPanel.classList.add('open');
+            el.hostPanelBackdrop.classList.add('open');
+        });
+        
+        el.closePanelBtn.addEventListener('click', () => {
+            el.hostPanel.classList.remove('open');
+            el.hostPanelBackdrop.classList.remove('open');
+        });
+        
+        el.hostPanelBackdrop.addEventListener('click', () => {
+            el.hostPanel.classList.remove('open');
+            el.hostPanelBackdrop.classList.remove('open');
+        });
+        
+        el.nextGenBtn.addEventListener('click', () => {
+            el.hostPanel.classList.remove('open');
+            el.hostPanelBackdrop.classList.remove('open');
+            nextGeneration();
+        });
+        
+        el.forceNextBtn.addEventListener('click', () => {
+            el.hostPanel.classList.remove('open');
+            el.hostPanelBackdrop.classList.remove('open');
+            forceNextTurn();
+        });
+        
+        el.hostAdminBtn.addEventListener('click', () => {
+            el.hostPanel.classList.remove('open');
+            el.hostPanelBackdrop.classList.remove('open');
+            toggleAdminTime();
+        });
+        
+        el.muteBtn.addEventListener('click', () => {
+            state.isMuted = !state.isMuted;
+            el.muteBtn.textContent = state.isMuted ? '🔇 Włącz dźwięki' : '🔊 Wycisz dźwięki';
+            if (state.isMuted) {
+                TTS.stop();
+            }
+        });
+        
+        el.leaveGameBtn.addEventListener('click', () => {
+            if (confirm(state.isHost ? 'Jako host, opuszczenie gry zamknie pokój dla wszystkich. Kontynuować?' : 'Czy na pewno chcesz opuścić grę?')) {
+                el.hostPanel.classList.remove('open');
+                el.hostPanelBackdrop.classList.remove('open');
+                leaveRoom();
+            }
+        });
+        
+        // Prevent double-tap zoom
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', (e) => {
+            const now = Date.now();
+            if (now - lastTouchEnd <= 300) e.preventDefault();
+            lastTouchEnd = now;
+        }, false);
+        
+        // =============================================
+        // INITIALIZATION
+        // =============================================
+        async function init() {
+            console.log('[INIT] Mars Timer starting...');
+            
+            requestWakeLock();
+            
+            // Initialize TTS early (but unlock needs user gesture)
+            TTS.init();
+            
+            // Check URL for room code (from QR scan or direct link)
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomCode = urlParams.get('room');
+            
+            if (roomCode && roomCode.length === 4) {
+                // Automatycznie dołącz do pokoju jeśli kod jest w URL (ze skanowania QR)
+                el.joinCodeInput.value = roomCode.toUpperCase();
+                // Automatycznie próbuj dołączyć po krótkim opóźnieniu (daje czas na załadowanie)
+                setTimeout(() => {
+                    joinRoom(roomCode.toUpperCase());
+                }, 500);
+            }
+            
+            // Auto-reconnect
+            const session = loadSession();
+            if (session && session.roomId) {
+                try {
+                    const roomRef = ref(db, `rooms/${session.roomId}`);
+                    const snapshot = await get(roomRef);
+                    
+                    if (snapshot.exists()) {
+                        const roomData = snapshot.val();
+                        if (roomData.players?.[session.playerId]) {
+                            state.roomId = session.roomId;
+                            state.playerId = session.playerId;
+                            state.playerName = session.playerName;
+                            state.playerColor = session.playerColor;
+                            state.isHost = session.isHost;
+                            state.turnDuration = roomData.turnDuration || 45;
+                            
+                            if (state.isHost) {
+                                // Don't init audio yet - needs user gesture
+                                document.body.classList.add('is-host');
+                                el.hostOnlySection.style.display = 'block';
+                                el.hostSoundSection.style.display = 'block';
+                                el.timeSettingMini.style.display = 'flex';
+                            }
+                            
+                            await update(ref(db, `rooms/${state.roomId}/players/${state.playerId}`), { online: true });
+                            onDisconnect(ref(db, `rooms/${state.roomId}/players/${state.playerId}`)).update({ online: false });
+                            
+                            if (roomData.state === 'playing') {
+                                // Set last announced to current to avoid re-announcing on reconnect
+                                state.lastAnnouncedTurnTime = roomData.turnStartTime || 0;
+                                state.lastAnnouncedGeneration = roomData.generation || 1;
+                                startGameListener();
+                            } else {
+                                enterWaitingRoom();
+                            }
+                            return;
+                        }
+                    }
+                } catch(e) {
+                    console.log('[INIT] Reconnect failed:', e);
+                }
+                clearSession();
+            }
+            
+            console.log('[INIT] Ready');
+        }
+        
+        init();
+    </script>
+</body>
+</html>
