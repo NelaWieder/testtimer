@@ -1330,6 +1330,7 @@
             // Reset state
             state.warningPlayed = false;
             state.timeUpPlayed = false;
+            state.passPending = false;
             // DON'T reset gameStartAnnounced here - it's set in startGame() and prevents double announcement
             
             const roomRef = ref(db, `rooms/${state.roomId}`);
@@ -1346,6 +1347,10 @@
                 state.players = data.players || {};
                 
                 if (data.state === 'playing') {
+                    const playerOrder = data.playerOrder || [];
+                    const currentPlayerId = playerOrder[data.currentPlayerIndex];
+                    if (currentPlayerId !== state.playerId) state.passPending = false;
+                    if (prevGameState && data.generation !== prevGameState.generation) state.passPending = false;
                     updateGameUI(data);
 
                     // =============================================
@@ -1395,7 +1400,8 @@
                                 TTS.speak(`Koniec pokolenia ${data.generation || 1}`);
                                 const endTime = Date.now();
                                 const currentPlayerId = playerOrder[data.currentPlayerIndex];
-                                const turnStartTime = data.turnStartTime || endTime;
+                                const rawStart = data.turnStartTime || endTime;
+                                const turnStartTime = Math.min(rawStart, endTime);
                                 const turnKey = `turnHistory/${endTime}_${Math.random().toString(36).slice(2)}`;
                                 const gen = data.generation || 1;
                                 const updatePayload = {
@@ -1429,10 +1435,11 @@
                                 const newTurnTime = Date.now();
                                 const currentPlayerIdForTurn = playerOrder[data.currentPlayerIndex];
                                 const turnKey = `turnHistory/${newTurnTime}_${Math.random().toString(36).slice(2)}`;
+                                const advStart = Math.min(data.turnStartTime || newTurnTime, newTurnTime);
                                 update(ref(db, `rooms/${state.roomId}`), {
                                     currentPlayerIndex: nextIndex,
                                     turnStartTime: newTurnTime,
-                                    [turnKey]: { playerId: currentPlayerIdForTurn, startTime: data.turnStartTime || newTurnTime, endTime: newTurnTime }
+                                    [turnKey]: { playerId: currentPlayerIdForTurn, startTime: advStart, endTime: newTurnTime }
                                 }).catch(e => console.warn('[PASS GEN] Firebase update (advance turn) failed:', e));
                             }
                         }
@@ -1514,10 +1521,11 @@
                                         } while (data.players?.[playerOrder[nextIndex]]?.passedGen && attempts < playerOrder.length);
                                         const newTurnTime = Date.now();
                                         const turnKey = `turnHistory/${newTurnTime}_${Math.random().toString(36).slice(2)}`;
+                                        const skipStart = Math.min(data.turnStartTime || newTurnTime, newTurnTime);
                                         update(ref(db, `rooms/${state.roomId}`), {
                                             currentPlayerIndex: nextIndex,
                                             turnStartTime: newTurnTime,
-                                            [turnKey]: { playerId: currentPlayerId, startTime: data.turnStartTime || newTurnTime, endTime: newTurnTime }
+                                            [turnKey]: { playerId: currentPlayerId, startTime: skipStart, endTime: newTurnTime }
                                         }).catch(e => console.warn('[TURN] Firebase update (skip passed) failed:', e));
                                     }
                                     state.lastAnnouncedTurnTime = data.turnStartTime;
@@ -1731,16 +1739,21 @@
                 attempts++;
             } while (state.players[playerOrder[nextIndex]]?.passedGen && attempts < playerOrder.length);
             
-            // WAŻNE: Użyj NOWEGO turnStartTime jako unikalnego markera!
+            // Nie rób "pass do siebie" gdy wszyscy spasowali – Koniec pokolenia to obsłuży
+            if (nextIndex === state.gameState.currentPlayerIndex) {
+                state.passPending = false;
+                el.passBtn.disabled = false;
+                return;
+            }
+            
             const newTurnTime = Date.now();
-            const turnStartTime = state.gameState.turnStartTime || newTurnTime;
+            const rawStart = state.gameState.turnStartTime || newTurnTime;
+            const turnStartTime = Math.min(rawStart, newTurnTime);
             const turnKey = `turnHistory/${newTurnTime}_${Math.random().toString(36).slice(2)}`;
             
             console.log('[PASS] Passing turn. Current:', state.gameState.currentPlayerIndex, 
                        '-> Next:', nextIndex, 'NewTurnTime:', newTurnTime);
             
-            // Update state - NIE ogłaszamy tutaj, ogłoszenie będzie przez Firebase listener
-            // To zapewnia że ogłoszenie działa nawet gdy inny gracz klika PASS
             try {
                 await update(ref(db, `rooms/${state.roomId}`), {
                     currentPlayerIndex: nextIndex,
