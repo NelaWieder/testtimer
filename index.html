@@ -854,6 +854,13 @@
             return `${mins}:${secs.toString().padStart(2, '0')}`;
         }
         
+        function formatDurationMs(ms) {
+            const sec = Math.round((ms || 0) / 1000);
+            const mins = Math.floor(sec / 60);
+            const secs = sec % 60;
+            return mins > 0 ? `${mins} min ${secs} s` : `${secs} s`;
+        }
+        
         // Get Polish ordinal for generation number
         function getPolishOrdinal(num) {
             if (POLISH_ORDINALS[num]) return POLISH_ORDINALS[num];
@@ -1259,6 +1266,7 @@
             state.lastAnnouncedTurnTime = turnStartTime;
             state.lastAnnouncedGeneration = 1;
             
+            const now = Date.now();
             await update(ref(db, `rooms/${state.roomId}`), {
                 state: 'playing',
                 generation: 1,
@@ -1268,7 +1276,11 @@
                 turnStartTime: turnStartTime,
                 turnDuration: state.turnDuration,
                 isPaused: false,
-                gameStartTime: Date.now()
+                gameStartTime: now,
+                generationStartTimes: { 1: now },
+                generationEndTimes: {},
+                totalAdminTimeMs: 0,
+                turnHistory: {}
             });
             
             // Announce first player (only here, listener won't announce again)
@@ -1359,13 +1371,20 @@
                             if (activeRemaining === 0) {
                                 // Last active player passed -> end generation (priority)
                                 TTS.speak(`Koniec pokolenia ${data.generation || 1}`);
-                                // Host also pauses the game for end-of-generation overlay
-                                update(ref(db, `rooms/${state.roomId}`), {
+                                const endTime = Date.now();
+                                const currentPlayerId = playerOrder[data.currentPlayerIndex];
+                                const turnStartTime = data.turnStartTime || endTime;
+                                const turnKey = `turnHistory/${endTime}_${Math.random().toString(36).slice(2)}`;
+                                const gen = data.generation || 1;
+                                const updatePayload = {
                                     isPaused: true,
-                                    overlayTitle: 'Koniec pokolenia ' + (data.generation || 1),
+                                    overlayTitle: 'Koniec pokolenia ' + gen,
                                     overlayText: 'Wszyscy spasowali',
-                                    overlayButton: '🚀 Następne Pokolenie'
-                                }).catch(() => {});
+                                    overlayButton: '🚀 Następne Pokolenie',
+                                    [turnKey]: { playerId: currentPlayerId, startTime: turnStartTime, endTime },
+                                    [`generationEndTimes/${gen}`]: endTime
+                                };
+                                update(ref(db, `rooms/${state.roomId}`), updatePayload).catch(() => {});
                             } else {
                                 // Announce each newly passed player (usually one)
                                 newlyPassed.forEach(pid => {
@@ -1386,9 +1405,12 @@
                                 } while (data.players?.[playerOrder[nextIndex]]?.passedGen && attempts < playerOrder.length);
 
                                 const newTurnTime = Date.now();
+                                const currentPlayerIdForTurn = playerOrder[data.currentPlayerIndex];
+                                const turnKey = `turnHistory/${newTurnTime}_${Math.random().toString(36).slice(2)}`;
                                 update(ref(db, `rooms/${state.roomId}`), {
                                     currentPlayerIndex: nextIndex,
-                                    turnStartTime: newTurnTime
+                                    turnStartTime: newTurnTime,
+                                    [turnKey]: { playerId: currentPlayerIdForTurn, startTime: data.turnStartTime || newTurnTime, endTime: newTurnTime }
                                 }).catch(() => {});
                             }
                         }
@@ -1468,9 +1490,12 @@
                                             nextIndex = (nextIndex + 1) % playerOrder.length;
                                             attempts++;
                                         } while (data.players?.[playerOrder[nextIndex]]?.passedGen && attempts < playerOrder.length);
+                                        const newTurnTime = Date.now();
+                                        const turnKey = `turnHistory/${newTurnTime}_${Math.random().toString(36).slice(2)}`;
                                         update(ref(db, `rooms/${state.roomId}`), {
                                             currentPlayerIndex: nextIndex,
-                                            turnStartTime: Date.now()
+                                            turnStartTime: newTurnTime,
+                                            [turnKey]: { playerId: currentPlayerId, startTime: data.turnStartTime || newTurnTime, endTime: newTurnTime }
                                         }).catch(() => {});
                                     }
                                     state.lastAnnouncedTurnTime = data.turnStartTime;
@@ -1669,6 +1694,8 @@
             
             // WAŻNE: Użyj NOWEGO turnStartTime jako unikalnego markera!
             const newTurnTime = Date.now();
+            const turnStartTime = state.gameState.turnStartTime || newTurnTime;
+            const turnKey = `turnHistory/${newTurnTime}_${Math.random().toString(36).slice(2)}`;
             
             console.log('[PASS] Passing turn. Current:', state.gameState.currentPlayerIndex, 
                        '-> Next:', nextIndex, 'NewTurnTime:', newTurnTime);
@@ -1677,7 +1704,8 @@
             // To zapewnia że ogłoszenie działa nawet gdy inny gracz klika PASS
             await update(ref(db, `rooms/${state.roomId}`), {
                 currentPlayerIndex: nextIndex,
-                turnStartTime: newTurnTime
+                turnStartTime: newTurnTime,
+                [turnKey]: { playerId: currentPlayerId, startTime: turnStartTime, endTime: newTurnTime }
             });
         }
         
@@ -1719,12 +1747,14 @@
             state.lastAnnouncedTurnTime = newTurnTime;
             state.lastAnnouncedGeneration = newGeneration;
             
+            const now = Date.now();
             const updates = {
                 generation: newGeneration,
                 currentPlayerIndex: newStartIndex,
                 startPlayerIndex: newStartIndex,
                 turnStartTime: newTurnTime,
-                isPaused: false
+                isPaused: false,
+                [`generationStartTimes/${newGeneration}`]: now
             };
             
             playerOrder.forEach(pid => {
@@ -1779,16 +1809,70 @@
             const secs = durationSec % 60;
             const durationStr = mins > 0 ? `${mins} min ${secs} s` : `${secs} s`;
             
-            el.statsList.innerHTML = `
-                <div class="stats-row"><span>Rozegrane pokolenia</span><strong>${gen}</strong></div>
-                <div class="stats-row"><span>Czas gry</span><strong>${durationStr}</strong></div>
-                <div class="stats-players-title">Gracze</div>
-                <div class="stats-players">${players.map(p => `
-                    <div class="stats-player">
-                        <span class="stats-player-dot" style="background:${COLOR_HEX[p.color] || '#6b7280'}"></span>
-                        <span>${p.name}</span>
+            const generationStartTimes = data.generationStartTimes || {};
+            const generationEndTimes = data.generationEndTimes || {};
+            const totalAdminTimeMs = data.totalAdminTimeMs || 0;
+            const turnHistory = data.turnHistory || {};
+            const turnEntries = Object.values(turnHistory).filter(e => e && e.playerId != null && e.startTime != null && e.endTime != null);
+            
+            let totalBetweenGensMs = 0;
+            const genDurations = [];
+            for (let n = 1; n <= gen; n++) {
+                const start = generationStartTimes[n] ?? 0;
+                const end = generationEndTimes[n] ?? 0;
+                if (start && end) genDurations.push({ n, ms: end - start });
+                if (n < gen) {
+                    const nextStart = generationStartTimes[n + 1] ?? 0;
+                    if (end && nextStart) totalBetweenGensMs += nextStart - end;
+                }
+            }
+            
+            const playerStats = {};
+            players.forEach(p => { playerStats[p.id] = { sumMs: 0, count: 0, maxMs: 0 }; });
+            turnEntries.forEach(e => {
+                const durationMs = e.endTime - e.startTime;
+                if (!playerStats[e.playerId]) playerStats[e.playerId] = { sumMs: 0, count: 0, maxMs: 0 };
+                playerStats[e.playerId].sumMs += durationMs;
+                playerStats[e.playerId].count += 1;
+                playerStats[e.playerId].maxMs = Math.max(playerStats[e.playerId].maxMs, durationMs);
+            });
+            
+            const genDurationsHtml = genDurations.length > 0
+                ? genDurations.map(g => `<div class="stats-row stats-sub"><span>Pokolenie ${g.n}</span><strong>${formatDurationMs(g.ms)}</strong></div>`).join('')
+                : '';
+            
+            const generalHtml = `
+                <div class="stats-row"><span>Łączny czas gry</span><strong>${durationStr}</strong></div>
+                <div class="stats-row"><span>Liczba pokoleń</span><strong>${gen}</strong></div>
+                ${genDurationsHtml}
+                <div class="stats-row"><span>Łączny admin time</span><strong>${formatDurationMs(totalAdminTimeMs)}</strong></div>
+                <div class="stats-row"><span>Czas między pokoleniami</span><strong>${formatDurationMs(totalBetweenGensMs)}</strong></div>
+            `;
+            
+            const playersHtml = players.map(p => {
+                const st = playerStats[p.id] || { sumMs: 0, count: 0, maxMs: 0 };
+                const avgMs = st.count > 0 ? st.sumMs / st.count : 0;
+                return `
+                    <div class="stats-player-block">
+                        <div class="stats-player">
+                            <span class="stats-player-dot" style="background:${COLOR_HEX[p.color] || '#6b7280'}"></span>
+                            <span>${p.name}</span>
+                        </div>
+                        <div class="stats-player-rows">
+                            <div class="stats-row stats-sub"><span>Suma czasu tur</span><strong>${formatDurationMs(st.sumMs)}</strong></div>
+                            <div class="stats-row stats-sub"><span>Średni czas tury</span><strong>${formatDurationMs(avgMs)}</strong></div>
+                            <div class="stats-row stats-sub"><span>Liczba tur</span><strong>${st.count}</strong></div>
+                            <div class="stats-row stats-sub"><span>Najdłuższa tura</span><strong>${formatDurationMs(st.maxMs)}</strong></div>
+                        </div>
                     </div>
-                `).join('')}</div>
+                `;
+            }).join('');
+            
+            el.statsList.innerHTML = `
+                <div class="stats-section-title">Statystyki ogólne</div>
+                ${generalHtml}
+                <div class="stats-players-title">Statystyki graczy</div>
+                <div class="stats-players">${playersHtml}</div>
             `;
             el.adminOverlay.classList.remove('active');
             el.statsOverlay.classList.add('active');
@@ -1835,6 +1919,7 @@
                 
                 const pauseDuration = Date.now() - (state.gameState.pausedAt || Date.now());
                 const newTurnTime = state.gameState.turnStartTime + pauseDuration;
+                const totalAdminTimeMs = (state.gameState.totalAdminTimeMs || 0) + pauseDuration;
                 
                 // Mark as announced so we don't re-announce current player
                 state.lastAnnouncedTurnTime = newTurnTime;
@@ -1842,7 +1927,8 @@
                 await update(ref(db, `rooms/${state.roomId}`), {
                     isPaused: false,
                     turnStartTime: newTurnTime,
-                    pausedBy: null // Clear pausedBy when resuming
+                    pausedBy: null,
+                    totalAdminTimeMs
                 });
             }
         }
@@ -1861,16 +1947,17 @@
             } while (state.players[playerOrder[nextIndex]]?.passedGen && attempts < playerOrder.length);
             
             const newTurnTime = Date.now();
+            const currentPlayerId = playerOrder[state.gameState.currentPlayerIndex];
+            const turnStartTime = state.gameState.turnStartTime || newTurnTime;
+            const turnKey = `turnHistory/${newTurnTime}_${Math.random().toString(36).slice(2)}`;
             
             console.log('[FORCE NEXT] Forcing next turn. Current:', state.gameState.currentPlayerIndex, 
                        '-> Next:', nextIndex);
             
-            // Mark as announced so we announce via listener
-            // Actually no - let the listener handle it for consistency
-            
             await update(ref(db, `rooms/${state.roomId}`), {
                 currentPlayerIndex: nextIndex,
-                turnStartTime: newTurnTime
+                turnStartTime: newTurnTime,
+                [turnKey]: { playerId: currentPlayerId, startTime: turnStartTime, endTime: newTurnTime }
             });
         }
         
