@@ -164,7 +164,19 @@
             </svg>
             <h2 id="overlayTitle">Admin Time</h2>
             <p id="overlayText">Gra wstrzymana</p>
-            <button class="resume-btn" id="resumeBtn">Wznów grę</button>
+            <div class="admin-overlay-buttons">
+                <button class="resume-btn" id="resumeBtn">Wznów grę</button>
+                <button class="end-game-btn" id="endGameBtn" style="display:none;"><div class="progress-fill"></div><span>Koniec gry</span></button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- STATS OVERLAY (koniec gry) -->
+    <div class="stats-overlay" id="statsOverlay">
+        <div class="stats-overlay-content">
+            <h2>Koniec gry</h2>
+            <div class="stats-list" id="statsList"></div>
+            <button class="lobby-btn primary" id="statsCloseBtn">Zamknij</button>
         </div>
     </div>
     
@@ -789,6 +801,7 @@
             overlayTitle: $('overlayTitle'),
             overlayText: $('overlayText'),
             resumeBtn: $('resumeBtn'),
+            endGameBtn: $('endGameBtn'),
             menuBtn: $('menuBtn'),
             hostPanel: $('hostPanel'),
             hostPanelBackdrop: $('hostPanelBackdrop'),
@@ -800,7 +813,10 @@
             hostAdminBtn: $('hostAdminBtn'),
             muteBtn: $('muteBtn'),
             leaveGameBtn: $('leaveGameBtn'),
-            roomCodeSmall: $('roomCodeSmall')
+            roomCodeSmall: $('roomCodeSmall'),
+            statsOverlay: $('statsOverlay'),
+            statsList: $('statsList'),
+            statsCloseBtn: $('statsCloseBtn')
         };
         
         // =============================================
@@ -1495,6 +1511,8 @@
                         }
                     }
                     
+                } else if (data.state === 'finished') {
+                    showStatsScreen(data);
                 } else if (data.state === 'waiting') {
                     enterWaitingRoom();
                 }
@@ -1612,6 +1630,11 @@
                 const pausedBy = data.pausedBy;
                 const canResume = state.isHost || (pausedBy === state.playerId);
                 el.resumeBtn.style.display = canResume ? 'inline-block' : 'none';
+                
+                // "Koniec gry" only at end of generation, host only, smaller + hold 0.5s
+                const isEndOfGen = data.overlayTitle && data.overlayTitle.includes('Koniec pokolenia');
+                el.endGameBtn.style.display = isEndOfGen && state.isHost ? 'inline-flex' : 'none';
+                el.endGameBtn.querySelector('.progress-fill').style.width = '0%';
             } else {
                 el.adminOverlay.classList.remove('active');
             }
@@ -1715,6 +1738,60 @@
                 playTurnStart();
                 TTS.speak(firstPlayer?.name);
             }, 2500);
+        }
+        
+        // END GAME (host only, from "Koniec gry" hold)
+        async function endGame() {
+            if (!state.isHost || !state.gameState) return;
+            const data = state.gameState;
+            const gameEndTime = Date.now();
+            const gameStartTime = data.gameStartTime || gameEndTime;
+            const durationSec = Math.floor((gameEndTime - gameStartTime) / 1000);
+            const finalGeneration = data.generation || 1;
+            const playerOrder = data.playerOrder || [];
+            const players = (playerOrder.map(pid => data.players?.[pid]).filter(Boolean)) || [];
+            
+            await update(ref(db, `rooms/${state.roomId}`), {
+                state: 'finished',
+                gameEndTime,
+                finalGeneration,
+                gameDurationSeconds: durationSec,
+                finishedAt: serverTimestamp()
+            });
+            
+            // Show stats on host immediately; others will get it via listener
+            showStatsScreen({
+                ...data,
+                state: 'finished',
+                gameEndTime,
+                finalGeneration,
+                gameDurationSeconds: durationSec
+            });
+        }
+        
+        function showStatsScreen(data) {
+            const gen = data.finalGeneration ?? data.generation ?? 0;
+            const durationSec = data.gameDurationSeconds ?? 0;
+            const playerOrder = data.playerOrder || [];
+            const players = playerOrder.map(pid => ({ id: pid, ...(data.players?.[pid] || {}) })).filter(p => p.name);
+            
+            const mins = Math.floor(durationSec / 60);
+            const secs = durationSec % 60;
+            const durationStr = mins > 0 ? `${mins} min ${secs} s` : `${secs} s`;
+            
+            el.statsList.innerHTML = `
+                <div class="stats-row"><span>Rozegrane pokolenia</span><strong>${gen}</strong></div>
+                <div class="stats-row"><span>Czas gry</span><strong>${durationStr}</strong></div>
+                <div class="stats-players-title">Gracze</div>
+                <div class="stats-players">${players.map(p => `
+                    <div class="stats-player">
+                        <span class="stats-player-dot" style="background:${COLOR_HEX[p.color] || '#6b7280'}"></span>
+                        <span>${p.name}</span>
+                    </div>
+                `).join('')}</div>
+            `;
+            el.adminOverlay.classList.remove('active');
+            el.statsOverlay.classList.add('active');
         }
         
         // ADMIN TIME
@@ -1858,6 +1935,36 @@
             el.passGenBtn.querySelector('.progress-fill').style.width = '0%';
             state.holdProgress = 0;
             if (confirmed) passGen();
+        }
+        
+        // =============================================
+        // HOLD FOR END GAME (0.5 s)
+        // =============================================
+        let endGameHoldTimeout = null;
+        function startEndGameHold() {
+            if (!el.endGameBtn || el.endGameBtn.style.display === 'none') return;
+            const progressFill = el.endGameBtn.querySelector('.progress-fill');
+            if (!progressFill) return;
+            let progress = 0;
+            progressFill.style.width = '0%';
+            endGameHoldTimeout = setInterval(() => {
+                progress += 10;
+                progressFill.style.width = progress + '%';
+                if (progress >= 100) {
+                    endEndGameHold(true);
+                }
+            }, 50);
+        }
+        function endEndGameHold(confirmed = false) {
+            if (endGameHoldTimeout) {
+                clearInterval(endGameHoldTimeout);
+                endGameHoldTimeout = null;
+            }
+            if (el.endGameBtn) {
+                const pf = el.endGameBtn.querySelector('.progress-fill');
+                if (pf) pf.style.width = '0%';
+            }
+            if (confirmed) endGame();
         }
         
         // =============================================
@@ -2033,6 +2140,18 @@
             } else {
                 toggleAdminTime();
             }
+        });
+        
+        el.endGameBtn.addEventListener('mousedown', startEndGameHold);
+        el.endGameBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startEndGameHold(); }, { passive: false });
+        el.endGameBtn.addEventListener('mouseup', () => endEndGameHold(false));
+        el.endGameBtn.addEventListener('mouseleave', () => endEndGameHold(false));
+        el.endGameBtn.addEventListener('touchend', () => endEndGameHold(false));
+        el.endGameBtn.addEventListener('touchcancel', () => endEndGameHold(false));
+        
+        el.statsCloseBtn.addEventListener('click', () => {
+            el.statsOverlay.classList.remove('active');
+            leaveRoom();
         });
         
         el.menuBtn.addEventListener('click', () => {
