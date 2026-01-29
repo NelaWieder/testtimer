@@ -1954,11 +1954,11 @@
             const isMyTurn = currentPlayerId === state.playerId;
             const isPaused = !state.gameState.isPaused;
             
-            // Only allow pausing during player's turn, or resuming if host
+            // Pausing: allowed for player whose turn OR host. Resuming: host or player who paused.
             if (isPaused) {
-                // Pausing - only during player's turn
-                if (!isMyTurn) {
-                    console.log('[ADMIN TIME] Cannot pause - not your turn');
+                const canPause = isMyTurn || state.isHost;
+                if (!canPause) {
+                    console.log('[ADMIN TIME] Cannot pause - not your turn and not host');
                     return;
                 }
                 
