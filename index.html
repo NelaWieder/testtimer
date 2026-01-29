@@ -27,8 +27,6 @@
         </defs>
     </svg>
     
-    <div class="connection-status" id="connectionStatus">⚠ Brak połączenia...</div>
-    
     <!-- LOBBY SCREEN -->
     <div class="screen lobby-screen active" id="lobbyScreen">
         <div class="mars-planet-lobby"></div>
@@ -200,6 +198,10 @@
         <div class="host-panel-section">
             <div class="host-panel-section-title">Pokój</div>
             <button class="host-action-btn danger" id="leaveGameBtn">🚪 Opuść grę</button>
+        </div>
+        <div class="host-panel-section host-panel-connection">
+            <div class="host-panel-section-title">Połączenie</div>
+            <div class="connection-status" id="connectionStatus">⚠ Brak połączenia...</div>
         </div>
         <div class="room-info-small">Kod pokoju: <span id="roomCodeSmall">----</span></div>
     </div>

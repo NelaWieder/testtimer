@@ -694,9 +694,9 @@ body {
 .room-info-small { font-size: 0.7rem; color: var(--text-muted); text-align: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(168, 85, 247, 0.2); }
 .room-info-small span { color: var(--accent-cyan); font-weight: 600; letter-spacing: 0.1em; }
 
-.connection-status { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); padding: 6px 16px; background: var(--surface); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 20px; font-size: 0.7rem; color: var(--text-secondary); z-index: 250; display: none; }
-.connection-status.connected { display: block; border-color: var(--success); color: var(--success); }
-.connection-status.offline { display: block; border-color: var(--danger); color: var(--danger); }
+.host-panel-connection .connection-status { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--surface); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: var(--radius-md); font-size: 0.85rem; color: var(--text-secondary); }
+.host-panel-connection .connection-status.connected { border-color: var(--success); color: var(--success); }
+.host-panel-connection .connection-status.offline { border-color: var(--danger); color: var(--danger); }
 
 .svg-defs { position: absolute; width: 0; height: 0; }
 
