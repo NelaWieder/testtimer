@@ -1815,26 +1815,38 @@
             const turnHistory = data.turnHistory || {};
             const turnEntries = Object.values(turnHistory).filter(e => e && e.playerId != null && e.startTime != null && e.endTime != null);
             
+            const totalGameMs = durationSec * 1000;
+            const activeGameMs = Math.max(0, totalGameMs - totalAdminTimeMs);
+            const adminTimePercent = totalGameMs > 0 ? Math.round((totalAdminTimeMs / totalGameMs) * 100) : 0;
+            
             let totalBetweenGensMs = 0;
             const genDurations = [];
             for (let n = 1; n <= gen; n++) {
-                const start = generationStartTimes[n] ?? 0;
-                const end = generationEndTimes[n] ?? 0;
-                if (start && end) genDurations.push({ n, ms: end - start });
+                const start = generationStartTimes[n] ?? generationStartTimes[String(n)] ?? 0;
+                const end = generationEndTimes[n] ?? generationEndTimes[String(n)] ?? 0;
+                if (start && end) {
+                    const ms = Math.max(0, end - start);
+                    genDurations.push({ n, ms });
+                }
                 if (n < gen) {
-                    const nextStart = generationStartTimes[n + 1] ?? 0;
-                    if (end && nextStart) totalBetweenGensMs += nextStart - end;
+                    const nextStart = generationStartTimes[n + 1] ?? generationStartTimes[String(n + 1)] ?? 0;
+                    if (end && nextStart) totalBetweenGensMs += Math.max(0, nextStart - end);
                 }
             }
+            const avgGenDurationMs = genDurations.length > 0
+                ? genDurations.reduce((acc, g) => acc + g.ms, 0) / genDurations.length
+                : null;
             
             const playerStats = {};
-            players.forEach(p => { playerStats[p.id] = { sumMs: 0, count: 0, maxMs: 0 }; });
+            players.forEach(p => { playerStats[p.id] = { sumMs: 0, count: 0, maxMs: 0, minMs: null }; });
             turnEntries.forEach(e => {
-                const durationMs = e.endTime - e.startTime;
-                if (!playerStats[e.playerId]) playerStats[e.playerId] = { sumMs: 0, count: 0, maxMs: 0 };
-                playerStats[e.playerId].sumMs += durationMs;
-                playerStats[e.playerId].count += 1;
-                playerStats[e.playerId].maxMs = Math.max(playerStats[e.playerId].maxMs, durationMs);
+                const durationMs = Math.max(0, e.endTime - e.startTime);
+                if (!playerStats[e.playerId]) playerStats[e.playerId] = { sumMs: 0, count: 0, maxMs: 0, minMs: null };
+                const st = playerStats[e.playerId];
+                st.sumMs += durationMs;
+                st.count += 1;
+                st.maxMs = Math.max(st.maxMs, durationMs);
+                st.minMs = st.minMs === null ? durationMs : Math.min(st.minMs, durationMs);
             });
             
             const genDurationsHtml = genDurations.length > 0
@@ -1845,13 +1857,19 @@
                 <div class="stats-row"><span>Łączny czas gry</span><strong>${durationStr}</strong></div>
                 <div class="stats-row"><span>Liczba pokoleń</span><strong>${gen}</strong></div>
                 ${genDurationsHtml}
+                ${avgGenDurationMs !== null ? `<div class="stats-row stats-sub"><span>Średni czas pokolenia</span><strong>${formatDurationMs(avgGenDurationMs)}</strong></div>` : ''}
                 <div class="stats-row"><span>Łączny admin time</span><strong>${formatDurationMs(totalAdminTimeMs)}</strong></div>
+                <div class="stats-row"><span>Admin time (% czasu gry)</span><strong>${adminTimePercent}%</strong></div>
                 <div class="stats-row"><span>Czas między pokoleniami</span><strong>${formatDurationMs(totalBetweenGensMs)}</strong></div>
             `;
             
             const playersHtml = players.map(p => {
-                const st = playerStats[p.id] || { sumMs: 0, count: 0, maxMs: 0 };
+                const st = playerStats[p.id] || { sumMs: 0, count: 0, maxMs: 0, minMs: null };
                 const avgMs = st.count > 0 ? st.sumMs / st.count : 0;
+                const sharePercent = activeGameMs > 0 && st.sumMs >= 0 ? Math.round((st.sumMs / activeGameMs) * 100) : null;
+                const minTurnStr = st.count === 0 ? '—' : formatDurationMs(st.minMs);
+                const maxTurnStr = st.count === 0 ? '—' : formatDurationMs(st.maxMs);
+                const shareStr = sharePercent !== null ? `${sharePercent}%` : '—';
                 return `
                     <div class="stats-player-block">
                         <div class="stats-player">
@@ -1860,9 +1878,11 @@
                         </div>
                         <div class="stats-player-rows">
                             <div class="stats-row stats-sub"><span>Suma czasu tur</span><strong>${formatDurationMs(st.sumMs)}</strong></div>
-                            <div class="stats-row stats-sub"><span>Średni czas tury</span><strong>${formatDurationMs(avgMs)}</strong></div>
+                            <div class="stats-row stats-sub"><span>Udział czasu w turze</span><strong>${shareStr}</strong></div>
+                            <div class="stats-row stats-sub"><span>Średni czas tury</span><strong>${st.count === 0 ? '—' : formatDurationMs(avgMs)}</strong></div>
                             <div class="stats-row stats-sub"><span>Liczba tur</span><strong>${st.count}</strong></div>
-                            <div class="stats-row stats-sub"><span>Najdłuższa tura</span><strong>${formatDurationMs(st.maxMs)}</strong></div>
+                            <div class="stats-row stats-sub"><span>Najkrótsza tura</span><strong>${minTurnStr}</strong></div>
+                            <div class="stats-row stats-sub"><span>Najdłuższa tura</span><strong>${maxTurnStr}</strong></div>
                         </div>
                     </div>
                 `;
