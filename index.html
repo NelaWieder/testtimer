@@ -272,7 +272,9 @@
             warningPlayed: false,
             timeUpPlayed: false,
             // Flag to prevent double announcement of first player on game start (iOS issue)
-            gameStartAnnounced: false
+            gameStartAnnounced: false,
+            passPending: false,
+            forceNextPending: false
         };
         
         let unsubscribers = [];
@@ -1027,12 +1029,28 @@
             // CRITICAL: Initialize audio on user gesture
             await initAudio();
             
-            const roomCode = generateRoomCode();
+            let roomCode = null;
+            let roomRef = null;
+            const maxAttempts = 10;
+            for (let i = 0; i < maxAttempts; i++) {
+                const code = generateRoomCode();
+                const r = ref(db, `rooms/${code}`);
+                const snap = await get(r);
+                if (!snap.exists()) {
+                    roomCode = code;
+                    roomRef = r;
+                    break;
+                }
+            }
+            if (!roomCode || !roomRef) {
+                console.error('[ROOM] No free room code after', maxAttempts, 'attempts');
+                alert('Nie udało się utworzyć pokoju. Spróbuj ponownie.');
+                return;
+            }
             state.roomId = roomCode;
             state.playerId = generatePlayerId();
             state.isHost = true;
             
-            const roomRef = ref(db, `rooms/${roomCode}`);
             await set(roomRef, {
                 host: state.playerId,
                 state: 'waiting',
@@ -1164,7 +1182,9 @@
                 updateStartButton();
                 
                 if (data.state === 'playing') {
+                    off(roomRef);
                     startGameListener();
+                    return;
                 }
             });
             unsubscribers.push(() => off(roomRef));
@@ -1186,7 +1206,7 @@
                 
                 return `
                     <div class="player-waiting-item ${!p.online ? 'offline' : ''}" data-player-id="${id}">
-                        <div class="player-waiting-color" style="background: ${COLOR_HEX[p.color]}"></div>
+                        <div class="player-waiting-color" style="background: ${COLOR_HEX[p.color] || '#6b7280'}"></div>
                         <div class="player-waiting-name">${p.name}</div>
                         ${p.isHost ? '<div class="player-waiting-host">Host</div>' : ''}
                         ${id === state.playerId ? '<div class="player-waiting-you">Ty</div>' : ''}
@@ -1384,7 +1404,7 @@
                                     [turnKey]: { playerId: currentPlayerId, startTime: turnStartTime, endTime },
                                     [`generationEndTimes/${gen}`]: endTime
                                 };
-                                update(ref(db, `rooms/${state.roomId}`), updatePayload).catch(() => {});
+                                update(ref(db, `rooms/${state.roomId}`), updatePayload).catch(e => console.warn('[PASS GEN] Firebase update (end gen) failed:', e));
                             } else {
                                 // Announce each newly passed player (usually one)
                                 newlyPassed.forEach(pid => {
@@ -1411,7 +1431,7 @@
                                     currentPlayerIndex: nextIndex,
                                     turnStartTime: newTurnTime,
                                     [turnKey]: { playerId: currentPlayerIdForTurn, startTime: data.turnStartTime || newTurnTime, endTime: newTurnTime }
-                                }).catch(() => {});
+                                }).catch(e => console.warn('[PASS GEN] Firebase update (advance turn) failed:', e));
                             }
                         }
                     }
@@ -1496,7 +1516,7 @@
                                             currentPlayerIndex: nextIndex,
                                             turnStartTime: newTurnTime,
                                             [turnKey]: { playerId: currentPlayerId, startTime: data.turnStartTime || newTurnTime, endTime: newTurnTime }
-                                        }).catch(() => {});
+                                        }).catch(e => console.warn('[TURN] Firebase update (skip passed) failed:', e));
                                     }
                                     state.lastAnnouncedTurnTime = data.turnStartTime;
                                     return;
@@ -1537,8 +1557,13 @@
                     }
                     
                 } else if (data.state === 'finished') {
+                    if (state.localTimerInterval) { clearInterval(state.localTimerInterval); state.localTimerInterval = null; }
+                    if (state.gameTimerInterval) { clearInterval(state.gameTimerInterval); state.gameTimerInterval = null; }
                     showStatsScreen(data);
                 } else if (data.state === 'waiting') {
+                    if (state.localTimerInterval) { clearInterval(state.localTimerInterval); state.localTimerInterval = null; }
+                    if (state.gameTimerInterval) { clearInterval(state.gameTimerInterval); state.gameTimerInterval = null; }
+                    off(roomRef);
                     enterWaitingRoom();
                 }
             });
@@ -1598,13 +1623,14 @@
             const currentPlayer = data.players?.[currentPlayerId];
             
             if (currentPlayer) {
+                const hex = COLOR_HEX[currentPlayer.color] || '#6b7280';
                 el.currentPlayerName.textContent = currentPlayer.name;
-                el.currentPlayerName.style.color = COLOR_HEX[currentPlayer.color];
+                el.currentPlayerName.style.color = hex;
                 
                 const isMyTurn = currentPlayerId === state.playerId;
                 el.currentPlayerLabel.textContent = isMyTurn ? 'Twoja tura!' : 'Tura gracza';
                 
-                el.passBtn.disabled = !isMyTurn || data.isPaused;
+                el.passBtn.disabled = state.passPending || !isMyTurn || data.isPaused;
                 el.passGenBtn.disabled = !isMyTurn || data.isPaused;
                 
                 // Admin Time button: enabled during player's turn (to pause) or if host (to resume)
@@ -1614,10 +1640,17 @@
                 
                 const timerGradient = document.querySelector('#timerGradient');
                 if (timerGradient) {
-                    timerGradient.innerHTML = `<stop offset="0%" style="stop-color:${COLOR_HEX[currentPlayer.color]}"/><stop offset="100%" style="stop-color:${COLOR_HEX[currentPlayer.color]}"/>`;
+                    timerGradient.innerHTML = `<stop offset="0%" style="stop-color:${hex}"/><stop offset="100%" style="stop-color:${hex}"/>`;
                 }
-                el.passBtn.style.background = `linear-gradient(135deg, ${COLOR_HEX[currentPlayer.color]}, ${COLOR_HEX[currentPlayer.color]})`;
-                el.passBtn.style.boxShadow = `0 8px 32px ${COLOR_HEX[currentPlayer.color]}66`;
+                el.passBtn.style.background = `linear-gradient(135deg, ${hex}, ${hex})`;
+                el.passBtn.style.boxShadow = `0 8px 32px ${hex}66`;
+            } else {
+                el.currentPlayerName.textContent = '---';
+                el.currentPlayerName.style.color = '';
+                el.currentPlayerLabel.textContent = 'Tura gracza';
+                el.passBtn.disabled = true;
+                el.passGenBtn.disabled = true;
+                el.adminTimeBtn.disabled = !state.isHost;
             }
             
             // Players strip
@@ -1638,7 +1671,7 @@
                 if (!p.online) statusClass += ' offline';
                 
                 return `<div class="player-chip ${statusClass}">
-                    <div class="player-chip-dot" style="background: ${COLOR_HEX[p.color]}"></div>
+                    <div class="player-chip-dot" style="background: ${COLOR_HEX[p.color] || '#6b7280'}"></div>
                     <span>${p.name}</span>
                     ${statusText ? `<span class="player-chip-status">${statusText}</span>` : ''}
                 </div>`;
@@ -1678,11 +1711,15 @@
         // Regular PASS
         async function pass() {
             if (!state.gameState) return;
+            if (state.passPending) return;
             
             const playerOrder = state.gameState.playerOrder;
             const currentPlayerId = playerOrder[state.gameState.currentPlayerIndex];
             
             if (currentPlayerId !== state.playerId) return;
+            
+            state.passPending = true;
+            el.passBtn.disabled = true;
             
             // Find next active player
             let nextIndex = state.gameState.currentPlayerIndex;
@@ -1702,11 +1739,18 @@
             
             // Update state - NIE ogłaszamy tutaj, ogłoszenie będzie przez Firebase listener
             // To zapewnia że ogłoszenie działa nawet gdy inny gracz klika PASS
-            await update(ref(db, `rooms/${state.roomId}`), {
-                currentPlayerIndex: nextIndex,
-                turnStartTime: newTurnTime,
-                [turnKey]: { playerId: currentPlayerId, startTime: turnStartTime, endTime: newTurnTime }
-            });
+            try {
+                await update(ref(db, `rooms/${state.roomId}`), {
+                    currentPlayerIndex: nextIndex,
+                    turnStartTime: newTurnTime,
+                    [turnKey]: { playerId: currentPlayerId, startTime: turnStartTime, endTime: newTurnTime }
+                });
+            } catch (e) {
+                console.warn('[PASS] Firebase update failed:', e);
+                el.passBtn.disabled = false;
+            } finally {
+                state.passPending = false;
+            }
         }
         
         // PASS GEN
@@ -1956,29 +2000,40 @@
         // FORCE NEXT TURN
         async function forceNextTurn() {
             if (!state.isHost || !state.gameState) return;
+            if (state.forceNextPending) return;
             
-            const playerOrder = state.gameState.playerOrder;
-            let nextIndex = state.gameState.currentPlayerIndex;
-            let attempts = 0;
+            state.forceNextPending = true;
+            el.forceNextBtn.disabled = true;
             
-            do {
-                nextIndex = (nextIndex + 1) % playerOrder.length;
-                attempts++;
-            } while (state.players[playerOrder[nextIndex]]?.passedGen && attempts < playerOrder.length);
-            
-            const newTurnTime = Date.now();
-            const currentPlayerId = playerOrder[state.gameState.currentPlayerIndex];
-            const turnStartTime = state.gameState.turnStartTime || newTurnTime;
-            const turnKey = `turnHistory/${newTurnTime}_${Math.random().toString(36).slice(2)}`;
-            
-            console.log('[FORCE NEXT] Forcing next turn. Current:', state.gameState.currentPlayerIndex, 
-                       '-> Next:', nextIndex);
-            
-            await update(ref(db, `rooms/${state.roomId}`), {
-                currentPlayerIndex: nextIndex,
-                turnStartTime: newTurnTime,
-                [turnKey]: { playerId: currentPlayerId, startTime: turnStartTime, endTime: newTurnTime }
-            });
+            try {
+                const playerOrder = state.gameState.playerOrder;
+                let nextIndex = state.gameState.currentPlayerIndex;
+                let attempts = 0;
+                
+                do {
+                    nextIndex = (nextIndex + 1) % playerOrder.length;
+                    attempts++;
+                } while (state.players[playerOrder[nextIndex]]?.passedGen && attempts < playerOrder.length);
+                
+                const newTurnTime = Date.now();
+                const currentPlayerId = playerOrder[state.gameState.currentPlayerIndex];
+                const turnStartTime = state.gameState.turnStartTime || newTurnTime;
+                const turnKey = `turnHistory/${newTurnTime}_${Math.random().toString(36).slice(2)}`;
+                
+                console.log('[FORCE NEXT] Forcing next turn. Current:', state.gameState.currentPlayerIndex, 
+                           '-> Next:', nextIndex);
+                
+                await update(ref(db, `rooms/${state.roomId}`), {
+                    currentPlayerIndex: nextIndex,
+                    turnStartTime: newTurnTime,
+                    [turnKey]: { playerId: currentPlayerId, startTime: turnStartTime, endTime: newTurnTime }
+                });
+            } catch (e) {
+                console.warn('[FORCE NEXT] Firebase update failed:', e);
+            } finally {
+                state.forceNextPending = false;
+                el.forceNextBtn.disabled = false;
+            }
         }
         
         async function leaveRoom() {
@@ -1997,7 +2052,9 @@
                     } else {
                         await remove(ref(db, `rooms/${state.roomId}/players/${state.playerId}`));
                     }
-                } catch(e) {}
+                } catch (e) {
+                    console.warn('[LEAVE] Firebase remove failed:', e);
+                }
             }
             
             state.roomId = null;
@@ -2010,6 +2067,8 @@
             state.warningPlayed = false;
             state.timeUpPlayed = false;
             state.gameStartAnnounced = false;
+            state.passPending = false;
+            state.forceNextPending = false;
             
             clearSession();
             document.body.classList.remove('is-host');
@@ -2310,9 +2369,11 @@
             }
         });
         
-        // Prevent double-tap zoom
+        // Prevent double-tap zoom (skip interactive elements so double-tap on buttons still works)
         let lastTouchEnd = 0;
         document.addEventListener('touchend', (e) => {
+            const t = e.target.closest('button, a, input, [role="button"]');
+            if (t) return;
             const now = Date.now();
             if (now - lastTouchEnd <= 300) e.preventDefault();
             lastTouchEnd = now;
@@ -2325,6 +2386,14 @@
             console.log('[INIT] Mars Timer starting...');
             
             requestWakeLock();
+            
+            const connRef = ref(db, '.info/connected');
+            onValue(connRef, (snap) => {
+                const connected = !!snap.val();
+                el.connectionStatus.textContent = connected ? 'Połączono' : '⚠ Brak połączenia...';
+                el.connectionStatus.classList.toggle('connected', connected);
+                el.connectionStatus.classList.toggle('offline', !connected);
+            });
             
             // Initialize TTS early (but unlock needs user gesture)
             TTS.init();
