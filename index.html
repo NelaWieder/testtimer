@@ -1282,12 +1282,6 @@
             const playerIds = players.map(([id]) => id);
             
             const turnStartTime = Date.now();
-            
-            // CRITICAL: Mark this turn as announced BEFORE updating Firebase
-            // This prevents the listener from announcing the first player again
-            state.lastAnnouncedTurnTime = turnStartTime;
-            state.lastAnnouncedGeneration = 1;
-            
             const now = Date.now();
             await update(ref(db, `rooms/${state.roomId}`), {
                 state: 'playing',
@@ -1304,20 +1298,8 @@
                 totalAdminTimeMs: 0,
                 turnHistory: {}
             });
-            
-            // Announce first player (only here, listener won't announce again)
-            const firstPlayer = players[0][1];
-            console.log('[GAME] Starting game, first player:', firstPlayer.name);
-            playTurnStart();
-            TTS.speak(firstPlayer.name);
-            
-            // Set flag AFTER announcement to prevent double announcement
-            state.gameStartAnnounced = true;
-            
-            // Clear flag after a short delay to allow normal turn announcements
-            setTimeout(() => {
-                state.gameStartAnnounced = false;
-            }, 2000);
+            // Pierwszego gracza ogłasza listener (gdy przeskoczymy do gry i wykryje pierwszy snapshot).
+            // Nie ustawiamy lastAnnounced przed update – inaczej fallback w listenerze się nie odpali.
         }
         
         function startGameListener() {
