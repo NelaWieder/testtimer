@@ -1428,6 +1428,7 @@
             } catch (e) {
                 console.warn('[startGame] initAudio', e);
             }
+            hostSpeak('Czas start');
             const now = Date.now();
             try {
                 await update(ref(db, `rooms/${state.roomId}`), {
