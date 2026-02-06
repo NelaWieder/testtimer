@@ -45,7 +45,7 @@
             <input type="text" class="join-input" id="joinCodeInput" placeholder="KOD" maxlength="4" autocomplete="off">
             <button class="lobby-btn primary" id="joinRoomBtn">Dołącz</button>
         </div>
-        <div class="lobby-version">v1.11</div>
+        <div class="lobby-version">v1.12</div>
     </div>
     
     <!-- NAME MODAL -->
@@ -67,6 +67,10 @@
                 <button class="predefined-player-btn" data-name="Benek" data-color="green">
                     <div class="predefined-player-color" style="background: #22c55e;"></div>
                     <span>Benek</span>
+                </button>
+                <button class="predefined-player-btn" data-name="Mateusz" data-color="yellow">
+                    <div class="predefined-player-color" style="background: #facc15;"></div>
+                    <span>Mateusz</span>
                 </button>
                 <button class="predefined-player-btn custom-player-btn" id="customPlayerBtn" data-action="custom">
                     <div class="predefined-player-color custom-icon"></div>
@@ -439,9 +443,9 @@
                 }
             },
             
-            // Komunikaty głosowe (czytanie) tylko na telefonie hosta
+            // Komunikaty głosowe (czytanie) – WYŁĄCZNIE na urządzeniu hosta
             speak(text) {
-                if (!state.isHost) return;
+                if (!state || !state.isHost) return;
                 if (state.isMuted) return;
                 
                 if (!('speechSynthesis' in window)) {
@@ -901,8 +905,9 @@
             console.log('[AUDIO] Audio initialization complete');
         }
         
+        // Wszystkie dźwięki gry – WYŁĄCZNIE na urządzeniu hosta
         function playBeep(freq = 800, dur = 150, type = 'sine', volume = 0.3) {
-            if (!state.isHost || !state.audioContext || state.isMuted) return;
+            if (!state || !state.isHost || !state.audioContext || state.isMuted) return;
             
             try {
                 // Resume context if suspended
@@ -925,26 +930,25 @@
             }
         }
         
-        // Wszystkie dźwięki gry tylko na telefonie hosta
         function playTurnStart() {
-            if (!state.isHost) return;
+            if (!state || !state.isHost) return;
             playBeep(600, 100);
             setTimeout(() => playBeep(800, 150), 120);
         }
         
         function playWarning() {
-            if (!state.isHost) return;
+            if (!state || !state.isHost) return;
             playBeep(880, 150, 'sine', 0.4);
         }
         
         function playTimeUp() {
-            if (!state.isHost) return;
+            if (!state || !state.isHost) return;
             playBeep(300, 300, 'sawtooth', 0.5);
             setTimeout(() => playBeep(250, 400, 'sawtooth', 0.5), 350);
         }
         
         function playGameEndSuccess() {
-            if (!state.isHost) return;
+            if (!state || !state.isHost) return;
             const t = 180;
             playBeep(523, t, 'sine', 0.35);
             setTimeout(() => playBeep(659, t, 'sine', 0.35), t);
@@ -1971,10 +1975,18 @@
                 <div class="stats-row"><span>Czas między pokoleniami</span><strong>${formatDurationMs(totalBetweenGensMs)}</strong></div>
             `;
             
+            const totalSumMs = players.reduce((acc, p) => acc + (playerStats[p.id]?.sumMs || 0), 0);
             const playersHtml = players.map(p => {
                 const st = playerStats[p.id] || { sumMs: 0, count: 0, maxMs: 0, minMs: null, overtimeMs: 0, overtimeCount: 0 };
                 const avgMs = st.count > 0 ? st.sumMs / st.count : 0;
-                const sharePercent = activeGameMs > 0 && st.sumMs >= 0 ? Math.round((st.sumMs / activeGameMs) * 100) : null;
+                let sharePercent = null;
+                if (st.sumMs >= 0 && (activeGameMs > 0 || totalSumMs > 0)) {
+                    if (totalSumMs > 0 && totalSumMs > activeGameMs) {
+                        sharePercent = Math.min(100, Math.round((st.sumMs / totalSumMs) * 100));
+                    } else if (activeGameMs > 0) {
+                        sharePercent = Math.min(100, Math.round((st.sumMs / activeGameMs) * 100));
+                    }
+                }
                 const minTurnStr = st.count === 0 ? '—' : formatDurationMs(st.minMs);
                 const maxTurnStr = st.count === 0 ? '—' : formatDurationMs(st.maxMs);
                 const shareStr = sharePercent !== null ? `${sharePercent}%` : '—';
