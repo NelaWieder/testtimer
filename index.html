@@ -137,7 +137,58 @@
             </button>
         </div>
         <div class="players-strip" id="playersStrip"></div>
-        <div class="timer-area">
+        <!-- PREP OVERLAY (losowanie gracza, planszy, kolejność draftu) -->
+        <div class="prep-overlay" id="prepOverlay" style="display:none;">
+            <div class="prep-phase prep-phase-first" id="prepPhaseFirst" style="display:none;">
+                <h2 class="prep-title" id="prepFirstTitle">Losowanie pierwszego gracza</h2>
+                <div class="prep-carousel-wrap" id="prepCarouselWrap" style="display:none;">
+                    <div class="prep-carousel-name" id="prepCarouselName">—</div>
+                </div>
+                <div class="prep-result-wrap" id="prepFirstResultWrap" style="display:none;">
+                    <p class="prep-result-label">Zaczyna</p>
+                    <p class="prep-result-name" id="prepFirstResultName">—</p>
+                </div>
+                <div class="prep-order-list-wrap" id="prepOrderListWrap" style="display:none;">
+                    <div class="prep-order-title">Kolejność graczy</div>
+                    <div id="prepOrderList"></div>
+                </div>
+                <div class="prep-actions">
+                    <button type="button" class="prep-btn primary" id="prepDrawFirstBtn" style="display:none;">Losuj</button>
+                    <button type="button" class="prep-btn primary" id="prepBoardDrawBtn" style="display:none;">Losowanie planszy</button>
+                </div>
+            </div>
+            <div class="prep-phase prep-phase-board" id="prepPhaseBoard" style="display:none;">
+                <h2 class="prep-title">Losowanie planszy</h2>
+                <div class="prep-wheel-wrap" id="prepWheelWrap">
+                    <div class="prep-wheel" id="prepWheel">
+                        <div class="prep-wheel-segment" data-n="1">1</div>
+                        <div class="prep-wheel-segment" data-n="2">2</div>
+                        <div class="prep-wheel-segment" data-n="3">3</div>
+                        <div class="prep-wheel-segment" data-n="4">4</div>
+                        <div class="prep-wheel-segment" data-n="5">5</div>
+                        <div class="prep-wheel-segment" data-n="6">6</div>
+                    </div>
+                </div>
+                <div class="prep-result-wrap" id="prepBoardResultWrap" style="display:none;">
+                    <p class="prep-result-label">Plansza</p>
+                    <p class="prep-result-number" id="prepBoardResultNumber">—</p>
+                </div>
+                <div class="prep-actions">
+                    <button type="button" class="prep-btn primary" id="prepDrawBoardBtn" style="display:none;">Losuj</button>
+                    <button type="button" class="prep-btn primary" id="prepToDraftBtn" style="display:none;">Przygotowanie do gry</button>
+                </div>
+            </div>
+            <div class="prep-phase prep-phase-draft" id="prepPhaseDraft" style="display:none;">
+                <h2 class="prep-title">Kolejność draftu – pokolenie 1</h2>
+                <div class="prep-draft-circle-wrap" id="prepDraftCircleWrap"></div>
+                <p class="prep-draft-direction">zgodnie ze wskazówkami zegara</p>
+                <div class="prep-actions">
+                    <button type="button" class="prep-btn primary" id="prepStartFirstGenBtn">Rozpocznij pierwsze pokolenie</button>
+                </div>
+            </div>
+            <button type="button" class="prep-back-btn" id="prepBackBtn" aria-label="Cofnij (przytrzymaj 1 s)"><span class="prep-back-btn-text">↩ Cofnij</span></button>
+        </div>
+        <div class="timer-area" id="timerArea">
             <div class="current-player-name" id="currentPlayerName">---</div>
             <div class="current-player-label" id="currentPlayerLabel">Tura gracza</div>
             <div class="timer-display">
@@ -245,6 +296,7 @@
         // =============================================
         const COLORS = ['blue', 'red', 'green', 'yellow', 'black'];
         const COLOR_HEX = { red: '#f43f5e', blue: '#3b82f6', green: '#22c55e', yellow: '#facc15', black: '#6b7280' };
+        const PREDEFINED_ORDER = ['Przemek', 'Karol', 'Benek', 'Mateusz'];
         
         // Polish ordinal numbers for generation announcement
         const POLISH_ORDINALS = {
@@ -821,7 +873,29 @@
             roomCodeSmall: $('roomCodeSmall'),
             statsOverlay: $('statsOverlay'),
             statsList: $('statsList'),
-            statsCloseBtn: $('statsCloseBtn')
+            statsCloseBtn: $('statsCloseBtn'),
+            prepOverlay: $('prepOverlay'),
+            prepPhaseFirst: $('prepPhaseFirst'),
+            prepPhaseBoard: $('prepPhaseBoard'),
+            prepPhaseDraft: $('prepPhaseDraft'),
+            prepCarouselWrap: $('prepCarouselWrap'),
+            prepCarouselName: $('prepCarouselName'),
+            prepFirstResultWrap: $('prepFirstResultWrap'),
+            prepFirstResultName: $('prepFirstResultName'),
+            prepOrderListWrap: $('prepOrderListWrap'),
+            prepOrderList: $('prepOrderList'),
+            prepDrawFirstBtn: $('prepDrawFirstBtn'),
+            prepBoardDrawBtn: $('prepBoardDrawBtn'),
+            prepWheelWrap: $('prepWheelWrap'),
+            prepWheel: $('prepWheel'),
+            prepBoardResultWrap: $('prepBoardResultWrap'),
+            prepBoardResultNumber: $('prepBoardResultNumber'),
+            prepDrawBoardBtn: $('prepDrawBoardBtn'),
+            prepToDraftBtn: $('prepToDraftBtn'),
+            prepDraftCircleWrap: $('prepDraftCircleWrap'),
+            prepStartFirstGenBtn: $('prepStartFirstGenBtn'),
+            prepBackBtn: $('prepBackBtn'),
+            timerArea: $('timerArea')
         };
         
         // =============================================
@@ -1193,7 +1267,7 @@
                 updateWaitingPlayersList();
                 updateStartButton();
                 
-                if (data.state === 'playing') {
+                if (data.state === 'prep' || data.state === 'playing') {
                     startGameListener();
                 }
             });
@@ -1281,51 +1355,15 @@
         async function startGame() {
             if (!state.isHost) return;
             
-            // Re-init audio
             await initAudio();
-            
-            const players = Object.entries(state.players)
-                .filter(([id, p]) => p.online)
-                .sort((a, b) => a[1].order - b[1].order);
-            const playerIds = players.map(([id]) => id);
-            
-            const turnStartTime = Date.now();
-            
-            // CRITICAL: Mark this turn as announced BEFORE updating Firebase
-            // This prevents the listener from announcing the first player again
-            state.lastAnnouncedTurnTime = turnStartTime;
-            state.lastAnnouncedGeneration = 1;
             
             const now = Date.now();
             await update(ref(db, `rooms/${state.roomId}`), {
-                state: 'playing',
-                generation: 1,
-                currentPlayerIndex: 0,
-                startPlayerIndex: 0,
-                playerOrder: playerIds,
-                turnStartTime: turnStartTime,
-                turnDuration: state.turnDuration,
-                isPaused: false,
+                state: 'prep',
+                prepPhase: 'first_player',
                 gameStartTime: now,
-                generationStartTimes: { 1: now },
-                generationEndTimes: {},
-                totalAdminTimeMs: 0,
-                turnHistory: {}
+                turnDuration: state.turnDuration
             });
-            
-            // Announce first player (only here, listener won't announce again)
-            const firstPlayer = players[0][1];
-            console.log('[GAME] Starting game, first player:', firstPlayer.name);
-            playTurnStart();
-            TTS.speak(firstPlayer.name);
-            
-            // Set flag AFTER announcement to prevent double announcement
-            state.gameStartAnnounced = true;
-            
-            // Clear flag after a short delay to allow normal turn announcements
-            setTimeout(() => {
-                state.gameStartAnnounced = false;
-            }, 2000);
         }
         
         function startGameListener() {
@@ -1355,6 +1393,12 @@
                 state.gameState = data;
                 state.players = data.players || {};
                 
+                if (data.state === 'prep') {
+                    el.gameScreen.classList.add('prep-active');
+                    updatePrepUI(data);
+                    return;
+                }
+                el.gameScreen.classList.remove('prep-active');
                 if (data.state === 'playing') {
                     updateGameUI(data);
 
@@ -1761,6 +1805,228 @@
             el.adminTimeBtn.classList.toggle('active', data.isPaused);
         }
         
+        // Domyślna kolejność: predefiniowani (Przemek, Karol, Benek, Mateusz), potem inni wg kolejności dołączenia
+        function getDefaultPlayerOrder(playersObj) {
+            const entries = Object.entries(playersObj || {}).filter(([, p]) => p && p.online);
+            const predefined = [];
+            const others = [];
+            PREDEFINED_ORDER.forEach(name => {
+                const found = entries.find(([id, p]) => p.name === name);
+                if (found) predefined.push(found);
+            });
+            entries.forEach(([id, p]) => {
+                if (!PREDEFINED_ORDER.includes(p.name)) others.push([id, p]);
+            });
+            others.sort((a, b) => (a[1].order ?? 0) - (b[1].order ?? 0));
+            return [...predefined, ...others].map(([id]) => id);
+        }
+        
+        function updatePrepUI(data) {
+            const phase = data.prepPhase || 'first_player';
+            el.prepPhaseFirst.style.display = phase === 'first_player' ? 'block' : 'none';
+            el.prepPhaseBoard.style.display = phase === 'board' ? 'block' : 'none';
+            el.prepPhaseDraft.style.display = phase === 'draft' ? 'block' : 'none';
+            el.prepBackBtn.style.display = (phase === 'board' || phase === 'draft') && state.isHost ? 'block' : 'none';
+            
+            const playerOrder = data.playerOrder || [];
+            const players = data.players || {};
+            
+            if (phase === 'first_player') {
+                el.prepCarouselWrap.style.display = 'none';
+                el.prepFirstResultWrap.style.display = 'none';
+                el.prepOrderListWrap.style.display = 'none';
+                el.prepDrawFirstBtn.style.display = 'none';
+                el.prepBoardDrawBtn.style.display = 'none';
+                
+                if (playerOrder.length === 0) {
+                    el.prepFirstTitle.textContent = 'Losowanie pierwszego gracza';
+                    if (state.isHost) el.prepDrawFirstBtn.style.display = 'block';
+                } else {
+                    el.prepFirstTitle.textContent = 'Pierwszy gracz';
+                    const first = players[playerOrder[0]];
+                    el.prepFirstResultName.textContent = first?.name || '—';
+                    el.prepFirstResultName.style.color = first ? COLOR_HEX[first.color] : '';
+                    el.prepFirstResultWrap.style.display = 'block';
+                    el.prepOrderListWrap.style.display = 'block';
+                    el.prepOrderList.innerHTML = playerOrder.map((pid, index) => {
+                        const p = players[pid];
+                        const canMoveUp = state.isHost && index > 0;
+                        const canMoveDown = state.isHost && index < playerOrder.length - 1;
+                        return `
+                            <div class="player-waiting-item" data-player-id="${pid}">
+                                <div class="player-waiting-color" style="background: ${COLOR_HEX[p?.color] || '#6b7280'}"></div>
+                                <div class="player-waiting-name">${p?.name || '—'}</div>
+                                ${state.isHost ? `
+                                    <div class="player-order-controls">
+                                        <button type="button" class="order-btn order-btn-up" ${!canMoveUp ? 'disabled' : ''} data-action="up" data-player-id="${pid}" aria-label="Przenieś w górę">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                                        </button>
+                                        <button type="button" class="order-btn order-btn-down" ${!canMoveDown ? 'disabled' : ''} data-action="down" data-player-id="${pid}" aria-label="Przenieś w dół">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                        </button>
+                                    </div>
+                                ` : ''}
+                            </div>`;
+                    }).join('');
+                    el.prepBoardDrawBtn.style.display = 'block';
+                }
+            } else if (phase === 'board') {
+                const boardNum = data.boardNumber;
+                el.prepWheelWrap.style.display = boardNum == null ? 'block' : 'none';
+                el.prepBoardResultWrap.style.display = boardNum != null ? 'block' : 'none';
+                if (boardNum != null) el.prepBoardResultNumber.textContent = boardNum;
+                el.prepDrawBoardBtn.style.display = (state.isHost && boardNum == null) ? 'block' : 'none';
+                el.prepToDraftBtn.style.display = boardNum != null ? 'block' : 'none';
+                if (el.prepWheel) {
+                    el.prepWheel.style.transition = '';
+                    el.prepWheel.style.transform = '';
+                }
+            } else if (phase === 'draft') {
+                if (playerOrder.length > 0) {
+                    const n = playerOrder.length;
+                    const itemsHtml = playerOrder.map((pid, i) => {
+                        const p = players[pid];
+                        const angleDeg = -90 + (360 / n) * i;
+                        return `<div class="admin-draft-item" style="--angle: ${angleDeg}deg"><span class="admin-draft-num">${i + 1}</span><span class="admin-draft-dot" style="background:${COLOR_HEX[p?.color] || '#6b7280'}"></span><span class="admin-draft-name">${p?.name || '—'}</span></div>`;
+                    }).join('');
+                    el.prepDraftCircleWrap.innerHTML = `
+                        <div class="admin-draft-circle" style="margin:0 auto;">
+                            <svg class="admin-draft-arrow" viewBox="0 0 200 200" aria-hidden="true">
+                                <defs><marker id="prepDraftArrowHead" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="var(--accent-cyan)"/></marker></defs>
+                                <path class="admin-draft-arrow-path" d="M 100 18 A 82 82 0 0 1 100 182" fill="none" stroke="var(--accent-cyan)" stroke-width="3" stroke-dasharray="6 5" marker-end="url(#prepDraftArrowHead)"/>
+                            </svg>
+                            ${itemsHtml}
+                        </div>`;
+                } else {
+                    el.prepDraftCircleWrap.innerHTML = '';
+                }
+            }
+        }
+        
+        async function runFirstPlayerDraw() {
+            if (!state.isHost || !state.gameState || state.gameState.prepPhase !== 'first_player') return;
+            const players = state.gameState.players || {};
+            const defaultOrder = getDefaultPlayerOrder(players);
+            if (defaultOrder.length < 2) return;
+            el.prepFirstTitle.textContent = 'Losowanie...';
+            el.prepDrawFirstBtn.style.display = 'none';
+            el.prepCarouselWrap.style.display = 'flex';
+            const names = defaultOrder.map(pid => players[pid]?.name || '—');
+            const durationMs = 3000;
+            const stepMs = 80;
+            let t0 = Date.now();
+            const carouselInterval = setInterval(() => {
+                const elapsed = Date.now() - t0;
+                if (elapsed >= durationMs) {
+                    clearInterval(carouselInterval);
+                    el.prepCarouselWrap.style.display = 'none';
+                    const randomIndex = Math.floor(Math.random() * defaultOrder.length);
+                    const firstPlayerId = defaultOrder[randomIndex];
+                    const playerOrder = [...defaultOrder.slice(randomIndex), ...defaultOrder.slice(0, randomIndex)];
+                    update(ref(db, `rooms/${state.roomId}`), {
+                        playerOrder,
+                        prepPhase: 'first_player'
+                    }).then(() => {
+                        const first = players[firstPlayerId];
+                        if (first?.name) TTS.speak(`Zaczyna ${first.name}`);
+                    });
+                    return;
+                }
+                const idx = Math.floor(elapsed / stepMs) % names.length;
+                el.prepCarouselName.textContent = names[idx];
+                el.prepCarouselName.style.opacity = '1';
+            }, stepMs);
+        }
+        
+        async function runBoardDraw() {
+            if (!state.isHost || !state.gameState || state.gameState.prepPhase !== 'board') return;
+            el.prepDrawBoardBtn.style.display = 'none';
+            const durationMs = 3000;
+            const result = 1 + Math.floor(Math.random() * 6);
+            const wheel = el.prepWheel;
+            if (wheel) {
+                const segmentAngle = 360 / 6;
+                const targetRotate = 360 * 3 + (result - 1) * segmentAngle + segmentAngle / 2;
+                wheel.style.transition = `transform ${durationMs}ms cubic-bezier(0.2, 0.8, 0.3, 1)`;
+                wheel.style.transform = `rotate(-${targetRotate}deg)`;
+            }
+            setTimeout(() => {
+                if (wheel) wheel.style.transition = '';
+                el.prepWheelWrap.style.display = 'none';
+                el.prepBoardResultNumber.textContent = result;
+                el.prepBoardResultWrap.style.display = 'block';
+                el.prepToDraftBtn.style.display = 'block';
+                update(ref(db, `rooms/${state.roomId}`), { boardNumber: result });
+                TTS.speak(`Plansza numer ${result}`);
+            }, durationMs);
+        }
+        
+        async function movePrepPlayerOrder(playerId, direction) {
+            if (!state.isHost || !state.gameState) return;
+            const order = state.gameState.playerOrder || [];
+            const idx = order.indexOf(playerId);
+            if (idx === -1) return;
+            const newIdx = idx + direction;
+            if (newIdx < 0 || newIdx >= order.length) return;
+            const next = [...order];
+            [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
+            await update(ref(db, `rooms/${state.roomId}`), { playerOrder: next });
+        }
+        
+        async function prepToBoard() {
+            if (!state.isHost) return;
+            await update(ref(db, `rooms/${state.roomId}`), { prepPhase: 'board' });
+        }
+        
+        async function prepToDraft() {
+            if (!state.isHost) return;
+            await update(ref(db, `rooms/${state.roomId}`), { prepPhase: 'draft' });
+        }
+        
+        async function startFirstGeneration() {
+            if (!state.isHost || !state.gameState) return;
+            const data = state.gameState;
+            const playerOrder = data.playerOrder || [];
+            if (playerOrder.length === 0) return;
+            await initAudio();
+            const turnStartTime = Date.now();
+            const now = Date.now();
+            state.lastAnnouncedTurnTime = turnStartTime;
+            state.lastAnnouncedGeneration = 1;
+            state.gameStartAnnounced = true;
+            setTimeout(() => { state.gameStartAnnounced = false; }, 2000);
+            await update(ref(db, `rooms/${state.roomId}`), {
+                state: 'playing',
+                prepPhase: null,
+                generation: 1,
+                currentPlayerIndex: 0,
+                startPlayerIndex: 0,
+                turnStartTime,
+                isPaused: false,
+                gameStartTime: data.gameStartTime || now,
+                generationStartTimes: { 1: now },
+                generationEndTimes: {},
+                totalAdminTimeMs: 0,
+                turnHistory: {}
+            });
+            const firstPlayer = data.players?.[playerOrder[0]];
+            if (firstPlayer?.name) {
+                playTurnStart();
+                TTS.speak(firstPlayer.name);
+            }
+        }
+        
+        async function prepBack() {
+            if (!state.isHost || !state.gameState) return;
+            const phase = state.gameState.prepPhase;
+            if (phase === 'first_player') return;
+            if (phase === 'board') {
+                await update(ref(db, `rooms/${state.roomId}`), { prepPhase: 'first_player', boardNumber: null });
+            } else if (phase === 'draft') {
+                await update(ref(db, `rooms/${state.roomId}`), { prepPhase: 'board' });
+            }
+        }
+        
         // =============================================
         // GAME ACTIONS
         // =============================================
@@ -1921,6 +2187,10 @@
             const turnHistory = data.turnHistory || {};
             const turnEntries = Object.values(turnHistory).filter(e => e && e.playerId != null && e.startTime != null && e.endTime != null);
             
+            const gameStartTime = data.gameStartTime || 0;
+            const gen1Start = generationStartTimes[1] ?? generationStartTimes['1'] ?? 0;
+            const prepDurationMs = gen1Start > 0 && gameStartTime > 0 ? Math.max(0, gen1Start - gameStartTime) : 0;
+            
             const totalGameMs = durationSec * 1000;
             const activeGameMs = Math.max(0, totalGameMs - totalAdminTimeMs);
             const adminTimePercent = totalGameMs > 0 ? Math.round((totalAdminTimeMs / totalGameMs) * 100) : 0;
@@ -1966,6 +2236,7 @@
             
             const generalHtml = `
                 <div class="stats-row"><span>Łączny czas gry</span><strong>${durationStr}</strong></div>
+                ${prepDurationMs > 0 ? `<div class="stats-row stats-sub"><span>Przygotowanie do gry</span><strong>${formatDurationMs(prepDurationMs)}</strong></div>` : ''}
                 <div class="stats-row"><span>Liczba pokoleń</span><strong>${gen}</strong></div>
                 ${genDurationsHtml}
                 ${avgGenDurationMs !== null ? `<div class="stats-row stats-sub"><span>Średni czas pokolenia</span><strong>${formatDurationMs(avgGenDurationMs)}</strong></div>` : ''}
@@ -2337,6 +2608,50 @@
         el.startGameBtn.addEventListener('click', startGame);
         el.leaveRoomBtn.addEventListener('click', leaveRoom);
         
+        // Prep: przyciski i cofnięcie (1 s przytrzymania)
+        let prepBackHoldTimeout = null;
+        function startPrepBackHold() {
+            if (!el.prepBackBtn) return;
+            const pf = el.prepBackBtn.querySelector('.progress-fill');
+            if (pf) pf.style.width = '0%';
+            prepBackHoldTimeout = setTimeout(() => {
+                prepBackHoldTimeout = null;
+                if (pf) pf.style.width = '100%';
+                prepBack();
+                setTimeout(() => { if (pf) pf.style.width = '0%'; }, 200);
+            }, 1000);
+        }
+        function endPrepBackHold() {
+            if (prepBackHoldTimeout) {
+                clearTimeout(prepBackHoldTimeout);
+                prepBackHoldTimeout = null;
+            }
+            if (el.prepBackBtn) {
+                const pf = el.prepBackBtn.querySelector('.progress-fill');
+                if (pf) pf.style.width = '0%';
+            }
+        }
+        el.prepDrawFirstBtn.addEventListener('click', runFirstPlayerDraw);
+        el.prepBoardDrawBtn.addEventListener('click', prepToBoard);
+        el.prepDrawBoardBtn.addEventListener('click', runBoardDraw);
+        el.prepToDraftBtn.addEventListener('click', prepToDraft);
+        el.prepStartFirstGenBtn.addEventListener('click', startFirstGeneration);
+        el.prepBackBtn.addEventListener('mousedown', startPrepBackHold);
+        el.prepBackBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startPrepBackHold(); }, { passive: false });
+        el.prepBackBtn.addEventListener('mouseup', endPrepBackHold);
+        el.prepBackBtn.addEventListener('mouseleave', endPrepBackHold);
+        el.prepBackBtn.addEventListener('touchend', endPrepBackHold);
+        el.prepBackBtn.addEventListener('touchcancel', endPrepBackHold);
+        el.prepOrderList.addEventListener('click', (e) => {
+            const btn = e.target.closest('.order-btn');
+            if (!btn || btn.disabled) return;
+            e.preventDefault();
+            const playerId = btn.dataset.playerId;
+            const action = btn.dataset.action;
+            if (action === 'up') movePrepPlayerOrder(playerId, -1);
+            else if (action === 'down') movePrepPlayerOrder(playerId, 1);
+        });
+        
         // Delegacja eventów dla przycisków zmiany kolejności graczy (działa na wszystkich urządzeniach mobilnych)
         let orderButtonTouchStart = null;
         el.waitingPlayersList.addEventListener('click', (e) => {
@@ -2538,10 +2853,11 @@
                             await update(ref(db, `rooms/${state.roomId}/players/${state.playerId}`), { online: true });
                             onDisconnect(ref(db, `rooms/${state.roomId}/players/${state.playerId}`)).update({ online: false }).catch(() => {});
                             
-                            if (roomData.state === 'playing') {
-                                // Set last announced to current to avoid re-announcing on reconnect
-                                state.lastAnnouncedTurnTime = roomData.turnStartTime || 0;
-                                state.lastAnnouncedGeneration = roomData.generation || 1;
+                            if (roomData.state === 'prep' || roomData.state === 'playing') {
+                                if (roomData.state === 'playing') {
+                                    state.lastAnnouncedTurnTime = roomData.turnStartTime || 0;
+                                    state.lastAnnouncedGeneration = roomData.generation || 1;
+                                }
                                 startGameListener();
                             } else {
                                 enterWaitingRoom();
