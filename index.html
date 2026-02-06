@@ -1353,17 +1353,24 @@
         }
         
         async function startGame() {
-            if (!state.isHost) return;
-            
-            await initAudio();
-            
+            if (!state.isHost || !state.roomId) return;
+            try {
+                await initAudio();
+            } catch (e) {
+                console.warn('[startGame] initAudio', e);
+            }
             const now = Date.now();
-            await update(ref(db, `rooms/${state.roomId}`), {
-                state: 'prep',
-                prepPhase: 'first_player',
-                gameStartTime: now,
-                turnDuration: state.turnDuration
-            });
+            try {
+                await update(ref(db, `rooms/${state.roomId}`), {
+                    state: 'prep',
+                    prepPhase: 'first_player',
+                    gameStartTime: now,
+                    turnDuration: state.turnDuration
+                });
+            } catch (err) {
+                console.error('[startGame] update failed', err);
+                alert('Nie udało się rozpocząć. Sprawdź połączenie.');
+            }
         }
         
         function startGameListener() {
@@ -1381,6 +1388,19 @@
             // DON'T reset gameStartAnnounced here - it's set in startGame() and prevents double announcement
             
             const roomRef = ref(db, `rooms/${state.roomId}`);
+            // Od razu odczytaj stan pokoju, żeby prep UI pokazał się bez czekania na pierwszy callback onValue
+            get(roomRef).then((snapshot) => {
+                if (!snapshot.exists()) return;
+                const data = snapshot.val();
+                if (!data || typeof data !== 'object') return;
+                state.gameState = data;
+                state.players = data.players || {};
+                if (data.state === 'prep') {
+                    el.gameScreen.classList.add('prep-active');
+                    updatePrepUI(data);
+                }
+            }).catch(() => {});
+            
             const unsubGame = onValue(roomRef, (snapshot) => {
                 if (!snapshot.exists()) {
                     leaveRoom();
@@ -1388,6 +1408,7 @@
                 }
                 
                 const data = snapshot.val();
+                if (!data || typeof data !== 'object') return;
                 const prevGameState = state.gameState;
                 
                 state.gameState = data;
@@ -1807,48 +1828,54 @@
         
         // Domyślna kolejność: predefiniowani (Przemek, Karol, Benek, Mateusz), potem inni wg kolejności dołączenia
         function getDefaultPlayerOrder(playersObj) {
-            const entries = Object.entries(playersObj || {}).filter(([, p]) => p && p.online);
+            if (!playersObj || typeof playersObj !== 'object') return [];
+            const entries = Object.entries(playersObj).filter(([, p]) => p && typeof p === 'object' && p.online === true);
             const predefined = [];
-            const others = [];
+            const seenIds = new Set();
             PREDEFINED_ORDER.forEach(name => {
-                const found = entries.find(([id, p]) => p.name === name);
-                if (found) predefined.push(found);
+                const found = entries.find(([id, p]) => p.name === name && !seenIds.has(id));
+                if (found) {
+                    predefined.push(found);
+                    seenIds.add(found[0]);
+                }
             });
-            entries.forEach(([id, p]) => {
-                if (!PREDEFINED_ORDER.includes(p.name)) others.push([id, p]);
-            });
+            const others = entries.filter(([id]) => !seenIds.has(id));
             others.sort((a, b) => (a[1].order ?? 0) - (b[1].order ?? 0));
-            return [...predefined, ...others].map(([id]) => id);
+            const ids = [...predefined.map(([id]) => id), ...others.map(([id]) => id)];
+            return ids;
         }
         
         function updatePrepUI(data) {
+            if (!data || typeof data !== 'object') return;
             const phase = data.prepPhase || 'first_player';
-            el.prepPhaseFirst.style.display = phase === 'first_player' ? 'block' : 'none';
-            el.prepPhaseBoard.style.display = phase === 'board' ? 'block' : 'none';
-            el.prepPhaseDraft.style.display = phase === 'draft' ? 'block' : 'none';
-            el.prepBackBtn.style.display = (phase === 'board' || phase === 'draft') && state.isHost ? 'block' : 'none';
+            if (el.prepPhaseFirst) el.prepPhaseFirst.style.display = phase === 'first_player' ? 'block' : 'none';
+            if (el.prepPhaseBoard) el.prepPhaseBoard.style.display = phase === 'board' ? 'block' : 'none';
+            if (el.prepPhaseDraft) el.prepPhaseDraft.style.display = phase === 'draft' ? 'block' : 'none';
+            if (el.prepBackBtn) el.prepBackBtn.style.display = (phase === 'board' || phase === 'draft') && state.isHost ? 'block' : 'none';
             
-            const playerOrder = data.playerOrder || [];
-            const players = data.players || {};
+            const playerOrder = Array.isArray(data.playerOrder) ? data.playerOrder : [];
+            const players = data.players && typeof data.players === 'object' ? data.players : {};
             
             if (phase === 'first_player') {
-                el.prepCarouselWrap.style.display = 'none';
-                el.prepFirstResultWrap.style.display = 'none';
-                el.prepOrderListWrap.style.display = 'none';
-                el.prepDrawFirstBtn.style.display = 'none';
-                el.prepBoardDrawBtn.style.display = 'none';
+                if (el.prepCarouselWrap) el.prepCarouselWrap.style.display = 'none';
+                if (el.prepFirstResultWrap) el.prepFirstResultWrap.style.display = 'none';
+                if (el.prepOrderListWrap) el.prepOrderListWrap.style.display = 'none';
+                if (el.prepDrawFirstBtn) el.prepDrawFirstBtn.style.display = 'none';
+                if (el.prepBoardDrawBtn) el.prepBoardDrawBtn.style.display = 'none';
                 
                 if (playerOrder.length === 0) {
-                    el.prepFirstTitle.textContent = 'Losowanie pierwszego gracza';
-                    if (state.isHost) el.prepDrawFirstBtn.style.display = 'block';
+                    if (el.prepFirstTitle) el.prepFirstTitle.textContent = 'Losowanie pierwszego gracza';
+                    if (state.isHost && el.prepDrawFirstBtn) el.prepDrawFirstBtn.style.display = 'block';
                 } else {
-                    el.prepFirstTitle.textContent = 'Pierwszy gracz';
+                    if (el.prepFirstTitle) el.prepFirstTitle.textContent = 'Pierwszy gracz';
                     const first = players[playerOrder[0]];
-                    el.prepFirstResultName.textContent = first?.name || '—';
-                    el.prepFirstResultName.style.color = first ? COLOR_HEX[first.color] : '';
-                    el.prepFirstResultWrap.style.display = 'block';
-                    el.prepOrderListWrap.style.display = 'block';
-                    el.prepOrderList.innerHTML = playerOrder.map((pid, index) => {
+                    if (el.prepFirstResultName) {
+                        el.prepFirstResultName.textContent = first?.name || '—';
+                        el.prepFirstResultName.style.color = first && first.color ? (COLOR_HEX[first.color] || '') : '';
+                    }
+                    if (el.prepFirstResultWrap) el.prepFirstResultWrap.style.display = 'block';
+                    if (el.prepOrderListWrap) el.prepOrderListWrap.style.display = 'block';
+                    if (el.prepOrderList) el.prepOrderList.innerHTML = playerOrder.map((pid, index) => {
                         const p = players[pid];
                         const canMoveUp = state.isHost && index > 0;
                         const canMoveDown = state.isHost && index < playerOrder.length - 1;
@@ -1868,28 +1895,29 @@
                                 ` : ''}
                             </div>`;
                     }).join('');
-                    el.prepBoardDrawBtn.style.display = 'block';
+                    if (el.prepBoardDrawBtn) el.prepBoardDrawBtn.style.display = 'block';
                 }
             } else if (phase === 'board') {
                 const boardNum = data.boardNumber;
-                el.prepWheelWrap.style.display = boardNum == null ? 'block' : 'none';
-                el.prepBoardResultWrap.style.display = boardNum != null ? 'block' : 'none';
-                if (boardNum != null) el.prepBoardResultNumber.textContent = boardNum;
-                el.prepDrawBoardBtn.style.display = (state.isHost && boardNum == null) ? 'block' : 'none';
-                el.prepToDraftBtn.style.display = boardNum != null ? 'block' : 'none';
+                if (el.prepWheelWrap) el.prepWheelWrap.style.display = boardNum == null ? 'block' : 'none';
+                if (el.prepBoardResultWrap) el.prepBoardResultWrap.style.display = boardNum != null ? 'block' : 'none';
+                if (el.prepBoardResultNumber && boardNum != null) el.prepBoardResultNumber.textContent = String(boardNum);
+                if (el.prepDrawBoardBtn) el.prepDrawBoardBtn.style.display = (state.isHost && boardNum == null) ? 'block' : 'none';
+                if (el.prepToDraftBtn) el.prepToDraftBtn.style.display = boardNum != null ? 'block' : 'none';
                 if (el.prepWheel) {
                     el.prepWheel.style.transition = '';
                     el.prepWheel.style.transform = '';
                 }
             } else if (phase === 'draft') {
-                if (playerOrder.length > 0) {
-                    const n = playerOrder.length;
-                    const itemsHtml = playerOrder.map((pid, i) => {
-                        const p = players[pid];
-                        const angleDeg = -90 + (360 / n) * i;
-                        return `<div class="admin-draft-item" style="--angle: ${angleDeg}deg"><span class="admin-draft-num">${i + 1}</span><span class="admin-draft-dot" style="background:${COLOR_HEX[p?.color] || '#6b7280'}"></span><span class="admin-draft-name">${p?.name || '—'}</span></div>`;
-                    }).join('');
-                    el.prepDraftCircleWrap.innerHTML = `
+                if (el.prepDraftCircleWrap) {
+                    if (playerOrder.length > 0) {
+                        const n = playerOrder.length;
+                        const itemsHtml = playerOrder.map((pid, i) => {
+                            const p = players[pid];
+                            const angleDeg = -90 + (360 / n) * i;
+                            return `<div class="admin-draft-item" style="--angle: ${angleDeg}deg"><span class="admin-draft-num">${i + 1}</span><span class="admin-draft-dot" style="background:${COLOR_HEX[p?.color] || '#6b7280'}"></span><span class="admin-draft-name">${p?.name || '—'}</span></div>`;
+                        }).join('');
+                        el.prepDraftCircleWrap.innerHTML = `
                         <div class="admin-draft-circle" style="margin:0 auto;">
                             <svg class="admin-draft-arrow" viewBox="0 0 200 200" aria-hidden="true">
                                 <defs><marker id="prepDraftArrowHead" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="var(--accent-cyan)"/></marker></defs>
@@ -1897,50 +1925,82 @@
                             </svg>
                             ${itemsHtml}
                         </div>`;
-                } else {
-                    el.prepDraftCircleWrap.innerHTML = '';
+                    } else {
+                        el.prepDraftCircleWrap.innerHTML = '';
+                    }
                 }
             }
         }
         
         async function runFirstPlayerDraw() {
             if (!state.isHost || !state.gameState || state.gameState.prepPhase !== 'first_player') return;
+            const roomId = state.roomId;
+            if (!roomId) return;
             const players = state.gameState.players || {};
             const defaultOrder = getDefaultPlayerOrder(players);
-            if (defaultOrder.length < 2) return;
-            el.prepFirstTitle.textContent = 'Losowanie...';
-            el.prepDrawFirstBtn.style.display = 'none';
-            el.prepCarouselWrap.style.display = 'flex';
+            if (defaultOrder.length < 2) {
+                alert('Do losowania potrzebni są co najmniej 2 graczy w pokoju.');
+                return;
+            }
             const names = defaultOrder.map(pid => players[pid]?.name || '—');
+            if (names.length === 0) return;
+            try {
+                if (el.prepFirstTitle) el.prepFirstTitle.textContent = 'Losowanie...';
+                if (el.prepDrawFirstBtn) el.prepDrawFirstBtn.style.display = 'none';
+                if (el.prepCarouselWrap) el.prepCarouselWrap.style.display = 'flex';
+            } catch (e) {
+                console.error('[prep] runFirstPlayerDraw UI', e);
+                return;
+            }
             const durationMs = 3000;
             const stepMs = 80;
-            let t0 = Date.now();
-            const carouselInterval = setInterval(() => {
-                const elapsed = Date.now() - t0;
-                if (elapsed >= durationMs) {
-                    clearInterval(carouselInterval);
-                    el.prepCarouselWrap.style.display = 'none';
-                    const randomIndex = Math.floor(Math.random() * defaultOrder.length);
-                    const firstPlayerId = defaultOrder[randomIndex];
-                    const playerOrder = [...defaultOrder.slice(randomIndex), ...defaultOrder.slice(0, randomIndex)];
-                    update(ref(db, `rooms/${state.roomId}`), {
-                        playerOrder,
-                        prepPhase: 'first_player'
-                    }).then(() => {
-                        const first = players[firstPlayerId];
-                        if (first?.name) TTS.speak(`Zaczyna ${first.name}`);
-                    });
-                    return;
+            const t0 = Date.now();
+            let carouselIntervalId = null;
+            carouselIntervalId = setInterval(() => {
+                try {
+                    const elapsed = Date.now() - t0;
+                    if (elapsed >= durationMs) {
+                        if (carouselIntervalId != null) clearInterval(carouselIntervalId);
+                        carouselIntervalId = null;
+                        if (el.prepCarouselWrap) el.prepCarouselWrap.style.display = 'none';
+                        const randomIndex = Math.floor(Math.random() * defaultOrder.length);
+                        const firstPlayerId = defaultOrder[randomIndex];
+                        const playerOrder = [...defaultOrder.slice(randomIndex), ...defaultOrder.slice(0, randomIndex)];
+                        update(ref(db, `rooms/${roomId}`), {
+                            playerOrder,
+                            prepPhase: 'first_player'
+                        }).then(() => {
+                            const first = players[firstPlayerId];
+                            if (first?.name && typeof TTS !== 'undefined' && TTS.speak) TTS.speak(`Zaczyna ${first.name}`);
+                        }).catch((err) => {
+                            console.error('[prep] runFirstPlayerDraw update failed', err);
+                            if (el.prepDrawFirstBtn) el.prepDrawFirstBtn.style.display = 'block';
+                            if (el.prepCarouselWrap) el.prepCarouselWrap.style.display = 'none';
+                            if (el.prepFirstTitle) el.prepFirstTitle.textContent = 'Losowanie pierwszego gracza';
+                            alert('Nie udało się zapisać wyniku. Sprawdź połączenie.');
+                        });
+                        return;
+                    }
+                    const idx = Math.floor(elapsed / stepMs) % names.length;
+                    if (el.prepCarouselName) {
+                        el.prepCarouselName.textContent = names[idx] || '—';
+                        el.prepCarouselName.style.opacity = '1';
+                    }
+                } catch (e) {
+                    console.error('[prep] runFirstPlayerDraw interval', e);
+                    if (carouselIntervalId != null) clearInterval(carouselIntervalId);
+                    if (el.prepDrawFirstBtn) el.prepDrawFirstBtn.style.display = 'block';
+                    if (el.prepCarouselWrap) el.prepCarouselWrap.style.display = 'none';
+                    if (el.prepFirstTitle) el.prepFirstTitle.textContent = 'Losowanie pierwszego gracza';
                 }
-                const idx = Math.floor(elapsed / stepMs) % names.length;
-                el.prepCarouselName.textContent = names[idx];
-                el.prepCarouselName.style.opacity = '1';
             }, stepMs);
         }
         
         async function runBoardDraw() {
             if (!state.isHost || !state.gameState || state.gameState.prepPhase !== 'board') return;
-            el.prepDrawBoardBtn.style.display = 'none';
+            const roomId = state.roomId;
+            if (!roomId) return;
+            if (el.prepDrawBoardBtn) el.prepDrawBoardBtn.style.display = 'none';
             const durationMs = 3000;
             const result = 1 + Math.floor(Math.random() * 6);
             const wheel = el.prepWheel;
@@ -1951,79 +2011,117 @@
                 wheel.style.transform = `rotate(-${targetRotate}deg)`;
             }
             setTimeout(() => {
-                if (wheel) wheel.style.transition = '';
-                el.prepWheelWrap.style.display = 'none';
-                el.prepBoardResultNumber.textContent = result;
-                el.prepBoardResultWrap.style.display = 'block';
-                el.prepToDraftBtn.style.display = 'block';
-                update(ref(db, `rooms/${state.roomId}`), { boardNumber: result });
-                TTS.speak(`Plansza numer ${result}`);
+                try {
+                    if (wheel) wheel.style.transition = '';
+                    if (el.prepWheelWrap) el.prepWheelWrap.style.display = 'none';
+                    if (el.prepBoardResultNumber) el.prepBoardResultNumber.textContent = String(result);
+                    if (el.prepBoardResultWrap) el.prepBoardResultWrap.style.display = 'block';
+                    if (el.prepToDraftBtn) el.prepToDraftBtn.style.display = 'block';
+                    update(ref(db, `rooms/${roomId}`), { boardNumber: result }).catch((err) => {
+                        console.error('[prep] runBoardDraw update failed', err);
+                        alert('Nie udało się zapisać numeru planszy. Sprawdź połączenie.');
+                    });
+                    if (typeof TTS !== 'undefined' && TTS.speak) TTS.speak(`Plansza numer ${result}`);
+                } catch (e) {
+                    console.error('[prep] runBoardDraw timeout', e);
+                }
             }, durationMs);
         }
         
         async function movePrepPlayerOrder(playerId, direction) {
-            if (!state.isHost || !state.gameState) return;
+            if (!state.isHost || !state.gameState || !state.roomId) return;
             const order = state.gameState.playerOrder || [];
+            if (!Array.isArray(order)) return;
             const idx = order.indexOf(playerId);
             if (idx === -1) return;
             const newIdx = idx + direction;
             if (newIdx < 0 || newIdx >= order.length) return;
             const next = [...order];
             [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
-            await update(ref(db, `rooms/${state.roomId}`), { playerOrder: next });
+            try {
+                await update(ref(db, `rooms/${state.roomId}`), { playerOrder: next });
+            } catch (err) {
+                console.error('[prep] movePrepPlayerOrder failed', err);
+            }
         }
         
         async function prepToBoard() {
-            if (!state.isHost) return;
-            await update(ref(db, `rooms/${state.roomId}`), { prepPhase: 'board' });
+            if (!state.isHost || !state.roomId) return;
+            try {
+                await update(ref(db, `rooms/${state.roomId}`), { prepPhase: 'board' });
+            } catch (err) {
+                console.error('[prep] prepToBoard failed', err);
+            }
         }
         
         async function prepToDraft() {
-            if (!state.isHost) return;
-            await update(ref(db, `rooms/${state.roomId}`), { prepPhase: 'draft' });
+            if (!state.isHost || !state.roomId) return;
+            try {
+                await update(ref(db, `rooms/${state.roomId}`), { prepPhase: 'draft' });
+            } catch (err) {
+                console.error('[prep] prepToDraft failed', err);
+            }
         }
         
         async function startFirstGeneration() {
-            if (!state.isHost || !state.gameState) return;
+            if (!state.isHost || !state.gameState || !state.roomId) return;
             const data = state.gameState;
-            const playerOrder = data.playerOrder || [];
+            const playerOrder = Array.isArray(data.playerOrder) ? data.playerOrder : [];
             if (playerOrder.length === 0) return;
-            await initAudio();
+            try {
+                await initAudio();
+            } catch (e) {
+                console.warn('[prep] initAudio', e);
+            }
             const turnStartTime = Date.now();
             const now = Date.now();
             state.lastAnnouncedTurnTime = turnStartTime;
             state.lastAnnouncedGeneration = 1;
             state.gameStartAnnounced = true;
             setTimeout(() => { state.gameStartAnnounced = false; }, 2000);
-            await update(ref(db, `rooms/${state.roomId}`), {
-                state: 'playing',
-                prepPhase: null,
-                generation: 1,
-                currentPlayerIndex: 0,
-                startPlayerIndex: 0,
-                turnStartTime,
-                isPaused: false,
-                gameStartTime: data.gameStartTime || now,
-                generationStartTimes: { 1: now },
-                generationEndTimes: {},
-                totalAdminTimeMs: 0,
-                turnHistory: {}
-            });
+            try {
+                await update(ref(db, `rooms/${state.roomId}`), {
+                    state: 'playing',
+                    prepPhase: null,
+                    generation: 1,
+                    currentPlayerIndex: 0,
+                    startPlayerIndex: 0,
+                    turnStartTime,
+                    isPaused: false,
+                    gameStartTime: data.gameStartTime || now,
+                    generationStartTimes: { 1: now },
+                    generationEndTimes: {},
+                    totalAdminTimeMs: 0,
+                    turnHistory: {}
+                });
+            } catch (err) {
+                console.error('[prep] startFirstGeneration update failed', err);
+                alert('Nie udało się rozpocząć gry. Sprawdź połączenie.');
+                return;
+            }
             const firstPlayer = data.players?.[playerOrder[0]];
             if (firstPlayer?.name) {
-                playTurnStart();
-                TTS.speak(firstPlayer.name);
+                try {
+                    if (typeof playTurnStart === 'function') playTurnStart();
+                    if (typeof TTS !== 'undefined' && TTS.speak) TTS.speak(firstPlayer.name);
+                } catch (e) {
+                    console.warn('[prep] TTS/playTurnStart', e);
+                }
             }
         }
         
         async function prepBack() {
-            if (!state.isHost || !state.gameState) return;
+            if (!state.isHost || !state.gameState || !state.roomId) return;
             const phase = state.gameState.prepPhase;
             if (phase === 'first_player') return;
-            if (phase === 'board') {
-                await update(ref(db, `rooms/${state.roomId}`), { prepPhase: 'first_player', boardNumber: null });
-            } else if (phase === 'draft') {
-                await update(ref(db, `rooms/${state.roomId}`), { prepPhase: 'board' });
+            try {
+                if (phase === 'board') {
+                    await update(ref(db, `rooms/${state.roomId}`), { prepPhase: 'first_player', boardNumber: null });
+                } else if (phase === 'draft') {
+                    await update(ref(db, `rooms/${state.roomId}`), { prepPhase: 'board' });
+                }
+            } catch (err) {
+                console.error('[prep] prepBack failed', err);
             }
         }
         
@@ -2617,7 +2715,11 @@
             prepBackHoldTimeout = setTimeout(() => {
                 prepBackHoldTimeout = null;
                 if (pf) pf.style.width = '100%';
-                prepBack();
+                try {
+                    prepBack();
+                } catch (e) {
+                    console.error('[prep] prepBack', e);
+                }
                 setTimeout(() => { if (pf) pf.style.width = '0%'; }, 200);
             }, 1000);
         }
@@ -2631,26 +2733,35 @@
                 if (pf) pf.style.width = '0%';
             }
         }
-        el.prepDrawFirstBtn.addEventListener('click', runFirstPlayerDraw);
-        el.prepBoardDrawBtn.addEventListener('click', prepToBoard);
-        el.prepDrawBoardBtn.addEventListener('click', runBoardDraw);
-        el.prepToDraftBtn.addEventListener('click', prepToDraft);
-        el.prepStartFirstGenBtn.addEventListener('click', startFirstGeneration);
-        el.prepBackBtn.addEventListener('mousedown', startPrepBackHold);
-        el.prepBackBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startPrepBackHold(); }, { passive: false });
-        el.prepBackBtn.addEventListener('mouseup', endPrepBackHold);
-        el.prepBackBtn.addEventListener('mouseleave', endPrepBackHold);
-        el.prepBackBtn.addEventListener('touchend', endPrepBackHold);
-        el.prepBackBtn.addEventListener('touchcancel', endPrepBackHold);
-        el.prepOrderList.addEventListener('click', (e) => {
-            const btn = e.target.closest('.order-btn');
-            if (!btn || btn.disabled) return;
-            e.preventDefault();
-            const playerId = btn.dataset.playerId;
-            const action = btn.dataset.action;
-            if (action === 'up') movePrepPlayerOrder(playerId, -1);
-            else if (action === 'down') movePrepPlayerOrder(playerId, 1);
-        });
+        if (el.prepDrawFirstBtn) el.prepDrawFirstBtn.addEventListener('click', () => { try { runFirstPlayerDraw(); } catch (e) { console.error('[prep] draw first', e); } });
+        if (el.prepBoardDrawBtn) el.prepBoardDrawBtn.addEventListener('click', () => { try { prepToBoard(); } catch (e) { console.error('[prep] to board', e); } });
+        if (el.prepDrawBoardBtn) el.prepDrawBoardBtn.addEventListener('click', () => { try { runBoardDraw(); } catch (e) { console.error('[prep] draw board', e); } });
+        if (el.prepToDraftBtn) el.prepToDraftBtn.addEventListener('click', () => { try { prepToDraft(); } catch (e) { console.error('[prep] to draft', e); } });
+        if (el.prepStartFirstGenBtn) el.prepStartFirstGenBtn.addEventListener('click', () => { try { startFirstGeneration(); } catch (e) { console.error('[prep] start first gen', e); } });
+        if (el.prepBackBtn) {
+            el.prepBackBtn.addEventListener('mousedown', startPrepBackHold);
+            el.prepBackBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startPrepBackHold(); }, { passive: false });
+            el.prepBackBtn.addEventListener('mouseup', endPrepBackHold);
+            el.prepBackBtn.addEventListener('mouseleave', endPrepBackHold);
+            el.prepBackBtn.addEventListener('touchend', endPrepBackHold);
+            el.prepBackBtn.addEventListener('touchcancel', endPrepBackHold);
+        }
+        if (el.prepOrderList) {
+            el.prepOrderList.addEventListener('click', (e) => {
+                const btn = e.target.closest('.order-btn');
+                if (!btn || btn.disabled) return;
+                e.preventDefault();
+                const playerId = btn.dataset.playerId;
+                const action = btn.dataset.action;
+                if (!playerId || !action) return;
+                try {
+                    if (action === 'up') movePrepPlayerOrder(playerId, -1);
+                    else if (action === 'down') movePrepPlayerOrder(playerId, 1);
+                } catch (err) {
+                    console.error('[prep] order button click', err);
+                }
+            });
+        }
         
         // Delegacja eventów dla przycisków zmiany kolejności graczy (działa na wszystkich urządzeniach mobilnych)
         let orderButtonTouchStart = null;
