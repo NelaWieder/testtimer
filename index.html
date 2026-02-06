@@ -214,7 +214,7 @@
         // =============================================
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
         import { 
-            getDatabase, ref, set, get, onValue, off, update, remove, onDisconnect, serverTimestamp 
+            getDatabase, ref, set, get, onValue, update, remove, onDisconnect, serverTimestamp 
         } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
         
         const firebaseConfig = {
@@ -855,9 +855,9 @@
         }
         
         function formatDurationMs(ms) {
-            const sec = Math.round((ms || 0) / 1000);
-            const mins = Math.floor(sec / 60);
-            const secs = sec % 60;
+            const totalSec = Math.round(Math.max(0, ms || 0) / 1000);
+            const mins = Math.floor(totalSec / 60);
+            const secs = totalSec % 60;
             return mins > 0 ? `${mins} min ${secs} s` : `${secs} s`;
         }
         
@@ -1032,14 +1032,19 @@
             state.playerId = generatePlayerId();
             state.isHost = true;
             
-            const roomRef = ref(db, `rooms/${roomCode}`);
-            await set(roomRef, {
-                host: state.playerId,
-                state: 'waiting',
-                turnDuration: state.turnDuration,
-                createdAt: serverTimestamp()
-            });
-            
+            try {
+                const roomRef = ref(db, `rooms/${roomCode}`);
+                await set(roomRef, {
+                    host: state.playerId,
+                    state: 'waiting',
+                    turnDuration: state.turnDuration,
+                    createdAt: serverTimestamp()
+                });
+            } catch (e) {
+                console.error('[createRoom]', e);
+                alert('Nie udało się utworzyć pokoju. Sprawdź połączenie.');
+                return;
+            }
             showNameModal();
         }
         
@@ -1048,8 +1053,15 @@
             await initAudio();
             
             const roomCode = code.toUpperCase();
-            const roomRef = ref(db, `rooms/${roomCode}`);
-            const snapshot = await get(roomRef);
+            let snapshot;
+            try {
+                const roomRef = ref(db, `rooms/${roomCode}`);
+                snapshot = await get(roomRef);
+            } catch (e) {
+                console.error('[joinRoom]', e);
+                alert('Błąd połączenia. Sprawdź sieć.');
+                return false;
+            }
             
             if (!snapshot.exists()) {
                 alert('Nie znaleziono pokoju o tym kodzie!');
@@ -1111,21 +1123,27 @@
             
             state.playerName = name;
             
-            const playersRef = ref(db, `rooms/${state.roomId}/players`);
-            const snapshot = await get(playersRef);
-            const existingPlayers = snapshot.exists() ? Object.keys(snapshot.val()).length : 0;
-            
-            const playerRef = ref(db, `rooms/${state.roomId}/players/${state.playerId}`);
-            await set(playerRef, {
-                name: state.playerName,
-                color: state.playerColor,
-                passedGen: false,
-                online: true,
-                order: existingPlayers,
-                isHost: state.isHost
-            });
-            
-            onDisconnect(playerRef).update({ online: false });
+            let existingPlayers = 0;
+            try {
+                const playersRef = ref(db, `rooms/${state.roomId}/players`);
+                const snapshot = await get(playersRef);
+                existingPlayers = snapshot.exists() ? Object.keys(snapshot.val()).length : 0;
+                
+                const playerRef = ref(db, `rooms/${state.roomId}/players/${state.playerId}`);
+                await set(playerRef, {
+                    name: state.playerName,
+                    color: state.playerColor,
+                    passedGen: false,
+                    online: true,
+                    order: existingPlayers,
+                    isHost: state.isHost
+                });
+                onDisconnect(playerRef).update({ online: false }).catch(() => {});
+            } catch (e) {
+                console.error('[confirmPlayer]', e);
+                alert('Nie udało się dołączyć do pokoju. Sprawdź połączenie.');
+                return;
+            }
             
             el.nameModal.classList.remove('active');
             saveSession();
@@ -1167,7 +1185,7 @@
                     startGameListener();
                 }
             });
-            unsubscribers.push(() => off(roomRef));
+            unsubscribers.push(unsubRoom);
             
             if (state.isHost) {
                 el.startGameBtn.textContent = 'Rozpocznij grę';
@@ -1299,6 +1317,8 @@
         }
         
         function startGameListener() {
+            // Prevent duplicate listeners when room snapshot fires multiple times (e.g. state + turnStartTime)
+            if (el.gameScreen.classList.contains('active')) return;
             showScreen('gameScreen');
             requestWakeLock();
             
@@ -1542,7 +1562,7 @@
                     enterWaitingRoom();
                 }
             });
-            unsubscribers.push(() => off(roomRef));
+            unsubscribers.push(unsubGame);
             
             // Timer loop
             state.localTimerInterval = setInterval(() => {
@@ -1781,22 +1801,35 @@
             const playerOrder = data.playerOrder || [];
             const players = (playerOrder.map(pid => data.players?.[pid]).filter(Boolean)) || [];
             
-            await update(ref(db, `rooms/${state.roomId}`), {
+            const updatePayload = {
                 state: 'finished',
                 gameEndTime,
                 finalGeneration,
                 gameDurationSeconds: durationSec,
                 finishedAt: serverTimestamp()
-            });
+            };
+            let finalTurnEntry = null;
+            if (!data.isPaused && playerOrder.length > 0 && data.turnStartTime != null) {
+                const currentPlayerId = playerOrder[data.currentPlayerIndex ?? 0];
+                if (currentPlayerId) {
+                    finalTurnEntry = { playerId: currentPlayerId, startTime: data.turnStartTime, endTime: gameEndTime };
+                    updatePayload[`turnHistory/${gameEndTime}_end`] = finalTurnEntry;
+                }
+            }
             
-            // Show stats on host immediately; others will get it via listener
-            showStatsScreen({
+            await update(ref(db, `rooms/${state.roomId}`), updatePayload);
+            
+            const statsData = {
                 ...data,
                 state: 'finished',
                 gameEndTime,
                 finalGeneration,
                 gameDurationSeconds: durationSec
-            });
+            };
+            if (finalTurnEntry) {
+                statsData.turnHistory = { ...(data.turnHistory || {}), [`${gameEndTime}_end`]: finalTurnEntry };
+            }
+            showStatsScreen(statsData);
         }
         
         function showStatsScreen(data) {
@@ -1840,10 +1873,10 @@
             const turnDurationSec = data.turnDuration ?? 45;
             const turnDurationMs = turnDurationSec * 1000;
             const playerStats = {};
-            players.forEach(p => { playerStats[p.id] = { sumMs: 0, count: 0, maxMs: 0, minMs: null, overtimeMs: 0 }; });
+            players.forEach(p => { playerStats[p.id] = { sumMs: 0, count: 0, maxMs: 0, minMs: null, overtimeMs: 0, overtimeCount: 0 }; });
             turnEntries.forEach(e => {
                 const durationMs = Math.max(0, e.endTime - e.startTime);
-                if (!playerStats[e.playerId]) playerStats[e.playerId] = { sumMs: 0, count: 0, maxMs: 0, minMs: null, overtimeMs: 0 };
+                if (!playerStats[e.playerId]) playerStats[e.playerId] = { sumMs: 0, count: 0, maxMs: 0, minMs: null, overtimeMs: 0, overtimeCount: 0 };
                 const st = playerStats[e.playerId];
                 st.sumMs += durationMs;
                 st.count += 1;
@@ -1851,6 +1884,7 @@
                 st.minMs = st.minMs === null ? durationMs : Math.min(st.minMs, durationMs);
                 const overtime = Math.max(0, durationMs - turnDurationMs);
                 st.overtimeMs += overtime;
+                if (overtime > 0) st.overtimeCount += 1;
             });
             
             const genDurationsHtml = genDurations.length > 0
@@ -1868,9 +1902,9 @@
             `;
             
             const playersHtml = players.map(p => {
-                const st = playerStats[p.id] || { sumMs: 0, count: 0, maxMs: 0, minMs: null, overtimeMs: 0 };
+                const st = playerStats[p.id] || { sumMs: 0, count: 0, maxMs: 0, minMs: null, overtimeMs: 0, overtimeCount: 0 };
                 const avgMs = st.count > 0 ? st.sumMs / st.count : 0;
-                const sharePercent = totalGameMs > 0 && st.sumMs >= 0 ? Math.round((st.sumMs / totalGameMs) * 100) : null;
+                const sharePercent = activeGameMs > 0 && st.sumMs >= 0 ? Math.round((st.sumMs / activeGameMs) * 100) : null;
                 const minTurnStr = st.count === 0 ? '—' : formatDurationMs(st.minMs);
                 const maxTurnStr = st.count === 0 ? '—' : formatDurationMs(st.maxMs);
                 const shareStr = sharePercent !== null ? `${sharePercent}%` : '—';
@@ -1885,6 +1919,7 @@
                             <div class="stats-row stats-sub"><span>Suma czasu tur</span><strong>${formatDurationMs(st.sumMs)}</strong></div>
                             <div class="stats-row stats-sub"><span>Udział w czasie gry</span><strong>${shareStr}</strong></div>
                             <div class="stats-row stats-sub"><span>Przekroczony czas (łącznie)</span><strong>${overtimeStr}</strong></div>
+                            <div class="stats-row stats-sub"><span>Liczba przekroczeń czasu</span><strong>${st.overtimeCount ?? 0}</strong></div>
                             <div class="stats-row stats-sub"><span>Średni czas tury</span><strong>${st.count === 0 ? '—' : formatDurationMs(avgMs)}</strong></div>
                             <div class="stats-row stats-sub"><span>Liczba tur</span><strong>${st.count}</strong></div>
                             <div class="stats-row stats-sub"><span>Najkrótsza tura</span><strong>${minTurnStr}</strong></div>
@@ -2370,7 +2405,7 @@
                             }
                             
                             await update(ref(db, `rooms/${state.roomId}/players/${state.playerId}`), { online: true });
-                            onDisconnect(ref(db, `rooms/${state.roomId}/players/${state.playerId}`)).update({ online: false });
+                            onDisconnect(ref(db, `rooms/${state.roomId}/players/${state.playerId}`)).update({ online: false }).catch(() => {});
                             
                             if (roomData.state === 'playing') {
                                 // Set last announced to current to avoid re-announcing on reconnect
