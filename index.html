@@ -347,7 +347,6 @@
             voicesLoaded: false,
             polishVoice: null,
             unlockAttempts: 0,
-            afterSpeakCallback: null,
             
             // Detect platform
             getPlatform() {
@@ -499,20 +498,13 @@
             // Komunikaty głosowe (czytanie) – WYŁĄCZNIE na urządzeniu hosta. Nigdy nie rzuca – błędy są łapane.
             speak(text) {
                 try {
-                    const invokeCallback = () => {
-                        if (typeof TTS.afterSpeakCallback === 'function') {
-                            const cb = TTS.afterSpeakCallback;
-                            TTS.afterSpeakCallback = null;
-                            try { cb(); } catch (e) { console.warn('[TTS] afterSpeakCallback', e); }
-                        }
-                    };
-                    if (!state || !state.isHost) { invokeCallback(); return; }
-                    if (state.isMuted) { invokeCallback(); return; }
-                    if (text == null || typeof text !== 'string') { invokeCallback(); return; }
+                    if (!state || !state.isHost) return;
+                    if (state.isMuted) return;
+                    if (text == null || typeof text !== 'string') return;
                     text = String(text).trim();
-                    if (!text) { invokeCallback(); return; }
+                    if (!text) return;
                     
-                    if (!('speechSynthesis' in window)) { invokeCallback(); return; }
+                    if (!('speechSynthesis' in window)) return;
                     
                     const platform = this.getPlatform();
                     speechSynthesis.cancel();
@@ -647,11 +639,6 @@
                             cleanup();
                             clearTicker();
                             console.log('[TTS] ✓ Speech ended:', text);
-                            if (typeof TTS.afterSpeakCallback === 'function') {
-                                const cb = TTS.afterSpeakCallback;
-                                TTS.afterSpeakCallback = null;
-                                try { cb(); } catch (e) { console.warn('[TTS] afterSpeakCallback', e); }
-                            }
                         };
                         
                         // Android: timeout dla onend
@@ -664,11 +651,6 @@
                                         cleanup();
                                         clearTicker();
                                         console.log('[TTS] Android: Mówienie wydaje się zakończone (speaking=false, pending=false), kończę...');
-                                        if (typeof TTS.afterSpeakCallback === 'function') {
-                                            const cb = TTS.afterSpeakCallback;
-                                            TTS.afterSpeakCallback = null;
-                                            try { cb(); } catch (e) { console.warn('[TTS] afterSpeakCallback', e); }
-                                        }
                                     } else {
                                         // Nadal mówi lub czeka - może być problem
                                         console.log('[TTS] Android: Mówienie nadal trwa lub czeka. Anuluję.');
@@ -1062,50 +1044,16 @@
             }
         }
         
-        /** Kolejka ogłoszeń – zapobiega przerywaniu (cancel) gdy kilka komunikatów pod rząd. */
-        let hostSpeakQueue = [];
-        let hostSpeakBusy = false;
-        
-        function processHostSpeakQueue() {
-            if (hostSpeakQueue.length === 0) return;
-            if (hostSpeakBusy) return;
-            if (!state || !state.isHost) {
-                hostSpeakQueue = [];
-                return;
-            }
-            const text = hostSpeakQueue.shift();
-            if (!text || typeof text !== 'string' || !text.trim()) {
-                processHostSpeakQueue();
-                return;
-            }
-            hostSpeakBusy = true;
-            TTS.afterSpeakCallback = function() {
-                hostSpeakBusy = false;
-                TTS.afterSpeakCallback = null;
-                processHostSpeakQueue();
-            };
-            try {
-                if (typeof TTS !== 'undefined' && TTS.speak) TTS.speak(text);
-                else {
-                    hostSpeakBusy = false;
-                    TTS.afterSpeakCallback = null;
-                    processHostSpeakQueue();
-                }
-            } catch (e) {
-                console.warn('[hostSpeak]', e);
-                hostSpeakBusy = false;
-                TTS.afterSpeakCallback = null;
-                processHostSpeakQueue();
-            }
-        }
-        
-        /** Ogłoszenie głosowe tylko na urządzeniu hosta – trafia do kolejki, odtwarzane po kolei. */
+        /** Ogłoszenie głosowe tylko na urządzeniu hosta. */
         function hostSpeak(text) {
             if (!state || !state.isHost) return;
             if (typeof text !== 'string' || !text.trim()) return;
             if (state.isMuted) return;
-            hostSpeakQueue.push(text);
-            processHostSpeakQueue();
+            try {
+                if (typeof TTS !== 'undefined' && TTS.speak) TTS.speak(text);
+            } catch (e) {
+                console.warn('[hostSpeak]', e);
+            }
         }
         
         // =============================================
@@ -2595,9 +2543,6 @@
             if (state.gameTimerInterval) clearInterval(state.gameTimerInterval);
             
             TTS.stop();
-            hostSpeakQueue = [];
-            hostSpeakBusy = false;
-            TTS.afterSpeakCallback = null;
             
             if (state.roomId && state.playerId) {
                 try {
