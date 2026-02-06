@@ -164,8 +164,11 @@
             </svg>
             <h2 id="overlayTitle">Admin Time</h2>
             <p id="overlayText">Gra wstrzymana</p>
+            <div class="admin-overlay-draft-order" id="adminOverlayDraftOrder" style="display:none;"></div>
             <div class="admin-overlay-buttons">
                 <button class="resume-btn" id="resumeBtn">Wznów grę</button>
+            </div>
+            <div class="admin-overlay-footer" id="adminOverlayFooter">
                 <button class="end-game-btn" id="endGameBtn" style="display:none;"><div class="progress-fill"></div><span>Koniec gry</span></button>
             </div>
         </div>
@@ -190,7 +193,8 @@
         <div class="host-panel-section" id="hostOnlySection" style="display:none;">
             <div class="host-panel-section-title">Kontrola gry (Host)</div>
             <button class="host-action-btn next-gen-btn" id="nextGenBtn" style="display:none;">🚀 Następne Pokolenie</button>
-            <button class="host-action-btn" id="forceNextBtn">⏭ Następna tura</button>
+            <button class="host-action-btn" id="forceNextBtn">⏭ Zakończ turę za aktywnego gracza</button>
+            <button class="host-action-btn" id="undoLastMoveBtn">↩ Cofnij ostatni ruch</button>
             <button class="host-action-btn" id="hostAdminBtn">⏸ Admin Time</button>
         </div>
         <div class="host-panel-section" id="hostSoundSection" style="display:none;">
@@ -802,6 +806,8 @@
             overlayText: $('overlayText'),
             resumeBtn: $('resumeBtn'),
             endGameBtn: $('endGameBtn'),
+            adminOverlayFooter: $('adminOverlayFooter'),
+            adminOverlayDraftOrder: $('adminOverlayDraftOrder'),
             menuBtn: $('menuBtn'),
             hostPanel: $('hostPanel'),
             hostPanelBackdrop: $('hostPanelBackdrop'),
@@ -810,6 +816,7 @@
             hostSoundSection: $('hostSoundSection'),
             nextGenBtn: $('nextGenBtn'),
             forceNextBtn: $('forceNextBtn'),
+            undoLastMoveBtn: $('undoLastMoveBtn'),
             hostAdminBtn: $('hostAdminBtn'),
             muteBtn: $('muteBtn'),
             leaveGameBtn: $('leaveGameBtn'),
@@ -1624,12 +1631,19 @@
                 const isMyTurn = currentPlayerId === state.playerId;
                 el.currentPlayerLabel.textContent = isMyTurn ? 'Twoja tura!' : 'Tura gracza';
                 
-                el.passBtn.disabled = !isMyTurn || data.isPaused;
+                // Host może zawsze spasować za aktywnego gracza (przycisk "Pass {Imię}"); inaczej tylko w swojej turze
+                if (state.isHost && !isMyTurn && !data.isPaused) {
+                    el.passBtn.textContent = `Pass ${currentPlayer.name}`;
+                    el.passBtn.disabled = false;
+                } else {
+                    el.passBtn.textContent = 'PASS';
+                    el.passBtn.disabled = !isMyTurn || data.isPaused;
+                }
                 el.passGenBtn.disabled = !isMyTurn || data.isPaused;
                 
-                // Admin Time button: enabled during player's turn (to pause) or if host (to resume)
+                // Admin Time: host zawsze może włączyć/wyłączyć; gracz gdy jego tura (pause) lub gdy on pauzował (resume)
                 const pausedBy = data.pausedBy;
-                const canUseAdminTime = isMyTurn || state.isHost || (data.isPaused && pausedBy === state.playerId);
+                const canUseAdminTime = state.isHost || isMyTurn || (data.isPaused && pausedBy === state.playerId);
                 el.adminTimeBtn.disabled = !canUseAdminTime;
                 
                 const timerGradient = document.querySelector('#timerGradient');
@@ -1676,10 +1690,31 @@
                 const canResume = state.isHost || (pausedBy === state.playerId);
                 el.resumeBtn.style.display = canResume ? 'inline-block' : 'none';
                 
-                // "Koniec gry" only at end of generation, host only, smaller + hold 0.5s
+                // "Koniec gry" only at end of generation, host only, at bottom + hold 1s
                 const isEndOfGen = data.overlayTitle && data.overlayTitle.includes('Koniec pokolenia');
-                el.endGameBtn.style.display = isEndOfGen && state.isHost ? 'inline-flex' : 'none';
+                const showEndGameBtn = isEndOfGen && state.isHost;
+                el.endGameBtn.style.display = showEndGameBtn ? 'inline-flex' : 'none';
+                if (el.adminOverlayFooter) el.adminOverlayFooter.style.display = showEndGameBtn ? 'flex' : 'none';
                 el.endGameBtn.querySelector('.progress-fill').style.width = '0%';
+                
+                // Kolejność draftu: po nieparzystym pokoleniu odwrotnie do wskazówek, po parzystym zgodnie
+                if (el.adminOverlayDraftOrder) {
+                    if (isEndOfGen && playerOrder.length > 0) {
+                        const gen = data.generation || 1;
+                        const counterClockwise = gen % 2 === 1;
+                        const draftOrder = counterClockwise ? [...playerOrder].reverse() : [...playerOrder];
+                        const directionLabel = counterClockwise ? 'odwrotnie do wskazówek zegara' : 'zgodnie ze wskazówkami zegara';
+                        const listHtml = draftOrder.map((pid, i) => {
+                            const p = data.players?.[pid];
+                            return `<div class="admin-draft-row"><span class="admin-draft-num">${i + 1}.</span><span class="admin-draft-dot" style="background:${COLOR_HEX[p?.color] || '#6b7280'}"></span><span>${p?.name || '—'}</span></div>`;
+                        }).join('');
+                        el.adminOverlayDraftOrder.innerHTML = `<div class="admin-draft-title">Kolejność draftu (${directionLabel})</div><div class="admin-draft-list">${listHtml}</div>`;
+                        el.adminOverlayDraftOrder.style.display = 'block';
+                    } else {
+                        el.adminOverlayDraftOrder.innerHTML = '';
+                        el.adminOverlayDraftOrder.style.display = 'none';
+                    }
+                }
             } else {
                 el.adminOverlay.classList.remove('active');
             }
@@ -1688,6 +1723,13 @@
             const allPassed = playerOrder.every(pid => data.players?.[pid]?.passedGen);
             el.nextGenBtn.style.display = allPassed && state.isHost ? 'block' : 'none';
             
+            // Cofnij ostatni ruch: dostępne dla hosta gdy jest co cofać i gra nie jest w pauzie
+            if (state.isHost && el.undoLastMoveBtn) {
+                const th = data.turnHistory || {};
+                const hasTurnToUndo = Object.values(th).some(v => v && v.playerId != null && v.startTime != null && v.endTime != null);
+                el.undoLastMoveBtn.disabled = data.isPaused || !hasTurnToUndo;
+            }
+            
             el.adminTimeBtn.classList.toggle('active', data.isPaused);
         }
         
@@ -1695,14 +1737,14 @@
         // GAME ACTIONS
         // =============================================
         
-        // Regular PASS
+        // Regular PASS (gracz w swojej turze lub host spasowujący za aktywnego gracza)
         async function pass() {
             if (!state.gameState) return;
             
             const playerOrder = state.gameState.playerOrder;
             const currentPlayerId = playerOrder[state.gameState.currentPlayerIndex];
             
-            if (currentPlayerId !== state.playerId) return;
+            if (currentPlayerId !== state.playerId && !state.isHost) return;
             
             // Find next active player
             let nextIndex = state.gameState.currentPlayerIndex;
@@ -1949,10 +1991,10 @@
             const isMyTurn = currentPlayerId === state.playerId;
             const isPaused = !state.gameState.isPaused;
             
-            // Only allow pausing during player's turn, or resuming if host
+            // Host can always pause/resume; inny gracz tylko gdy jego tura (pause) lub gdy to on pauzował (resume)
             if (isPaused) {
-                // Pausing - only during player's turn
-                if (!isMyTurn) {
+                // Pausing - host zawsze może; gracz tylko w swojej turze
+                if (!state.isHost && !isMyTurn) {
                     console.log('[ADMIN TIME] Cannot pause - not your turn');
                     return;
                 }
@@ -2022,6 +2064,31 @@
             });
         }
         
+        // Cofnij ostatni ruch (tylko host) – przywraca poprzedniego gracza i usuwa ostatni wpis z turnHistory
+        async function undoLastMove() {
+            if (!state.isHost || !state.gameState) return;
+            if (state.gameState.isPaused) return;
+            
+            const turnHistory = state.gameState.turnHistory || {};
+            const entries = Object.entries(turnHistory).filter(([, v]) => v && v.playerId != null && v.startTime != null && v.endTime != null);
+            if (entries.length === 0) return;
+            
+            entries.sort((a, b) => (b[1].endTime || 0) - (a[1].endTime || 0));
+            const [lastKey, lastVal] = entries[0];
+            const playerOrder = state.gameState.playerOrder || [];
+            const prevIndex = playerOrder.indexOf(lastVal.playerId);
+            if (prevIndex === -1) return;
+            
+            state.lastAnnouncedTurnTime = lastVal.startTime;
+            state.lastAnnouncedGeneration = state.gameState.generation || 1;
+            
+            await update(ref(db, `rooms/${state.roomId}`), {
+                currentPlayerIndex: prevIndex,
+                turnStartTime: lastVal.startTime,
+                [`turnHistory/${lastKey}`]: null
+            });
+        }
+        
         async function leaveRoom() {
             unsubscribers.forEach(unsub => unsub());
             unsubscribers = [];
@@ -2062,7 +2129,7 @@
         }
         
         // =============================================
-        // HOLD FOR PASS GEN
+        // HOLD FOR PASS GEN (1 s)
         // =============================================
         function startHold() {
             if (el.passGenBtn.disabled) return;
@@ -2072,7 +2139,7 @@
                 state.holdProgress += 10;
                 progressFill.style.width = state.holdProgress + '%';
                 if (state.holdProgress >= 100) endHold(true);
-            }, 50);
+            }, 100);
         }
         
         function endHold(confirmed = false) {
@@ -2086,7 +2153,7 @@
         }
         
         // =============================================
-        // HOLD FOR END GAME (0.5 s)
+        // HOLD FOR END GAME (1 s)
         // =============================================
         let endGameHoldTimeout = null;
         function startEndGameHold() {
@@ -2101,7 +2168,7 @@
                 if (progress >= 100) {
                     endEndGameHold(true);
                 }
-            }, 50);
+            }, 100);
         }
         function endEndGameHold(confirmed = false) {
             if (endGameHoldTimeout) {
@@ -2327,6 +2394,12 @@
             el.hostPanel.classList.remove('open');
             el.hostPanelBackdrop.classList.remove('open');
             forceNextTurn();
+        });
+        
+        el.undoLastMoveBtn.addEventListener('click', () => {
+            el.hostPanel.classList.remove('open');
+            el.hostPanelBackdrop.classList.remove('open');
+            undoLastMove();
         });
         
         el.hostAdminBtn.addEventListener('click', () => {
