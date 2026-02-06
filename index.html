@@ -45,7 +45,7 @@
             <input type="text" class="join-input" id="joinCodeInput" placeholder="KOD" maxlength="4" autocomplete="off">
             <button class="lobby-btn primary" id="joinRoomBtn">Dołącz</button>
         </div>
-        <div class="lobby-version">v1.12</div>
+        <div class="lobby-version">v1.13</div>
     </div>
     
     <!-- NAME MODAL -->
@@ -347,6 +347,7 @@
             voicesLoaded: false,
             polishVoice: null,
             unlockAttempts: 0,
+            afterSpeakCallback: null,
             
             // Detect platform
             getPlatform() {
@@ -498,13 +499,20 @@
             // Komunikaty głosowe (czytanie) – WYŁĄCZNIE na urządzeniu hosta. Nigdy nie rzuca – błędy są łapane.
             speak(text) {
                 try {
-                    if (!state || !state.isHost) return;
-                    if (state.isMuted) return;
-                    if (text == null || typeof text !== 'string') return;
+                    const invokeCallback = () => {
+                        if (typeof TTS.afterSpeakCallback === 'function') {
+                            const cb = TTS.afterSpeakCallback;
+                            TTS.afterSpeakCallback = null;
+                            try { cb(); } catch (e) { console.warn('[TTS] afterSpeakCallback', e); }
+                        }
+                    };
+                    if (!state || !state.isHost) { invokeCallback(); return; }
+                    if (state.isMuted) { invokeCallback(); return; }
+                    if (text == null || typeof text !== 'string') { invokeCallback(); return; }
                     text = String(text).trim();
-                    if (!text) return;
+                    if (!text) { invokeCallback(); return; }
                     
-                    if (!('speechSynthesis' in window)) return;
+                    if (!('speechSynthesis' in window)) { invokeCallback(); return; }
                     
                     const platform = this.getPlatform();
                     speechSynthesis.cancel();
@@ -639,6 +647,11 @@
                             cleanup();
                             clearTicker();
                             console.log('[TTS] ✓ Speech ended:', text);
+                            if (typeof TTS.afterSpeakCallback === 'function') {
+                                const cb = TTS.afterSpeakCallback;
+                                TTS.afterSpeakCallback = null;
+                                try { cb(); } catch (e) { console.warn('[TTS] afterSpeakCallback', e); }
+                            }
                         };
                         
                         // Android: timeout dla onend
@@ -647,11 +660,15 @@
                                 if (!endFired) {
                                     console.log('[TTS] Android: onend nie został wywołany po 10 sekundach. speaking=' + speechSynthesis.speaking + ', pending=' + speechSynthesis.pending);
                                     if (!speechSynthesis.speaking && !speechSynthesis.pending) {
-                                        // Wydaje się, że się skończyło, ale bez eventu
                                         endFired = true;
                                         cleanup();
                                         clearTicker();
                                         console.log('[TTS] Android: Mówienie wydaje się zakończone (speaking=false, pending=false), kończę...');
+                                        if (typeof TTS.afterSpeakCallback === 'function') {
+                                            const cb = TTS.afterSpeakCallback;
+                                            TTS.afterSpeakCallback = null;
+                                            try { cb(); } catch (e) { console.warn('[TTS] afterSpeakCallback', e); }
+                                        }
                                     } else {
                                         // Nadal mówi lub czeka - może być problem
                                         console.log('[TTS] Android: Mówienie nadal trwa lub czeka. Anuluję.');
@@ -978,26 +995,26 @@
             console.log('[AUDIO] Audio initialization complete');
         }
         
-        // Wszystkie dźwięki gry – WYŁĄCZNIE na urządzeniu hosta
+        // Wszystkie dźwięki gry – WYŁĄCZNIE na urządzeniu hosta. Nigdy nie rzucają – błędy są łapane.
         function playBeep(freq = 800, dur = 150, type = 'sine', volume = 0.3) {
-            if (!state || !state.isHost || !state.audioContext || state.isMuted) return;
-            
+            if (!state || !state.isHost || state.isMuted) return;
             try {
-                // Resume context if suspended
-                if (state.audioContext.state === 'suspended') {
-                    state.audioContext.resume();
+                if (!state.audioContext) return;
+                const ctx = state.audioContext;
+                if (ctx.state === 'suspended') {
+                    ctx.resume().catch(() => {});
                 }
-                
-                const osc = state.audioContext.createOscillator();
-                const gain = state.audioContext.createGain();
+                if (ctx.state === 'closed') return;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
                 osc.connect(gain);
-                gain.connect(state.audioContext.destination);
+                gain.connect(ctx.destination);
                 osc.frequency.value = freq;
                 osc.type = type;
-                gain.gain.setValueAtTime(volume, state.audioContext.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, state.audioContext.currentTime + dur / 1000);
-                osc.start(state.audioContext.currentTime);
-                osc.stop(state.audioContext.currentTime + dur / 1000);
+                gain.gain.setValueAtTime(volume, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + dur / 1000);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + dur / 1000);
             } catch (e) {
                 console.warn('[AUDIO] Beep error:', e);
             }
@@ -1005,39 +1022,90 @@
         
         function playTurnStart() {
             if (!state || !state.isHost) return;
-            playBeep(600, 100);
-            setTimeout(() => playBeep(800, 150), 120);
+            try {
+                playBeep(600, 100);
+                setTimeout(() => playBeep(800, 150), 120);
+            } catch (e) {
+                console.warn('[AUDIO] playTurnStart', e);
+            }
         }
         
         function playWarning() {
             if (!state || !state.isHost) return;
-            playBeep(880, 150, 'sine', 0.4);
+            try {
+                playBeep(880, 150, 'sine', 0.4);
+            } catch (e) {
+                console.warn('[AUDIO] playWarning', e);
+            }
         }
         
         function playTimeUp() {
             if (!state || !state.isHost) return;
-            playBeep(300, 300, 'sawtooth', 0.5);
-            setTimeout(() => playBeep(250, 400, 'sawtooth', 0.5), 350);
+            try {
+                playBeep(300, 300, 'sawtooth', 0.5);
+                setTimeout(() => playBeep(250, 400, 'sawtooth', 0.5), 350);
+            } catch (e) {
+                console.warn('[AUDIO] playTimeUp', e);
+            }
         }
         
         function playGameEndSuccess() {
             if (!state || !state.isHost) return;
-            const t = 180;
-            playBeep(523, t, 'sine', 0.35);
-            setTimeout(() => playBeep(659, t, 'sine', 0.35), t);
-            setTimeout(() => playBeep(784, t, 'sine', 0.35), t * 2);
-            setTimeout(() => playBeep(1047, t * 2, 'sine', 0.4), t * 3);
+            try {
+                const t = 180;
+                playBeep(523, t, 'sine', 0.35);
+                setTimeout(() => playBeep(659, t, 'sine', 0.35), t);
+                setTimeout(() => playBeep(784, t, 'sine', 0.35), t * 2);
+                setTimeout(() => playBeep(1047, t * 2, 'sine', 0.4), t * 3);
+            } catch (e) {
+                console.warn('[AUDIO] playGameEndSuccess', e);
+            }
         }
         
-        /** Ogłoszenie głosowe tylko na urządzeniu hosta – zawsze używaj zamiast TTS.speak w kontekście gry. */
+        /** Kolejka ogłoszeń – zapobiega przerywaniu (cancel) gdy kilka komunikatów pod rząd. */
+        let hostSpeakQueue = [];
+        let hostSpeakBusy = false;
+        
+        function processHostSpeakQueue() {
+            if (hostSpeakQueue.length === 0) return;
+            if (hostSpeakBusy) return;
+            if (!state || !state.isHost) {
+                hostSpeakQueue = [];
+                return;
+            }
+            const text = hostSpeakQueue.shift();
+            if (!text || typeof text !== 'string' || !text.trim()) {
+                processHostSpeakQueue();
+                return;
+            }
+            hostSpeakBusy = true;
+            TTS.afterSpeakCallback = function() {
+                hostSpeakBusy = false;
+                TTS.afterSpeakCallback = null;
+                processHostSpeakQueue();
+            };
+            try {
+                if (typeof TTS !== 'undefined' && TTS.speak) TTS.speak(text);
+                else {
+                    hostSpeakBusy = false;
+                    TTS.afterSpeakCallback = null;
+                    processHostSpeakQueue();
+                }
+            } catch (e) {
+                console.warn('[hostSpeak]', e);
+                hostSpeakBusy = false;
+                TTS.afterSpeakCallback = null;
+                processHostSpeakQueue();
+            }
+        }
+        
+        /** Ogłoszenie głosowe tylko na urządzeniu hosta – trafia do kolejki, odtwarzane po kolei. */
         function hostSpeak(text) {
             if (!state || !state.isHost) return;
             if (typeof text !== 'string' || !text.trim()) return;
-            try {
-                if (typeof TTS !== 'undefined' && TTS.speak) TTS.speak(text);
-            } catch (e) {
-                console.warn('[hostSpeak]', e);
-            }
+            if (state.isMuted) return;
+            hostSpeakQueue.push(text);
+            processHostSpeakQueue();
         }
         
         // =============================================
@@ -1928,6 +1996,11 @@
             if (!state.isHost || !state.gameState || state.gameState.prepPhase !== 'first_player') return;
             const roomId = state.roomId;
             if (!roomId) return;
+            try {
+                await initAudio();
+            } catch (e) {
+                console.warn('[prep] initAudio before first draw', e);
+            }
             const players = state.gameState.players || {};
             const defaultOrder = getDefaultPlayerOrder(players);
             if (defaultOrder.length < 2) {
@@ -1995,6 +2068,11 @@
             if (!state.isHost || !state.gameState || state.gameState.prepPhase !== 'board') return;
             const roomId = state.roomId;
             if (!roomId) return;
+            try {
+                await initAudio();
+            } catch (e) {
+                console.warn('[prep] initAudio before board draw', e);
+            }
             if (el.prepDrawBoardBtn) el.prepDrawBoardBtn.style.display = 'none';
             const durationMs = 3000;
             const result = 1 + Math.floor(Math.random() * 6);
@@ -2517,6 +2595,9 @@
             if (state.gameTimerInterval) clearInterval(state.gameTimerInterval);
             
             TTS.stop();
+            hostSpeakQueue = [];
+            hostSpeakBusy = false;
+            TTS.afterSpeakCallback = null;
             
             if (state.roomId && state.playerId) {
                 try {
