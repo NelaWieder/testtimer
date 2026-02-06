@@ -45,7 +45,7 @@
             <input type="text" class="join-input" id="joinCodeInput" placeholder="KOD" maxlength="4" autocomplete="off">
             <button class="lobby-btn primary" id="joinRoomBtn">Dołącz</button>
         </div>
-        <div class="lobby-version">v1.13</div>
+        <div class="lobby-version">v1.14</div>
     </div>
     
     <!-- NAME MODAL -->
@@ -147,6 +147,7 @@
                 <div class="prep-result-wrap" id="prepFirstResultWrap" style="display:none;">
                     <p class="prep-result-label">Zaczyna</p>
                     <p class="prep-result-name" id="prepFirstResultName">—</p>
+                    <button type="button" class="prep-replay-btn" id="prepReplayFirstBtn" aria-label="Odtwórz">🔊 Odtwórz</button>
                 </div>
                 <div class="prep-order-list-wrap" id="prepOrderListWrap" style="display:none;">
                     <div class="prep-order-title">Kolejność graczy</div>
@@ -172,6 +173,7 @@
                 <div class="prep-result-wrap" id="prepBoardResultWrap" style="display:none;">
                     <p class="prep-result-label">Plansza</p>
                     <p class="prep-result-number" id="prepBoardResultNumber">—</p>
+                    <button type="button" class="prep-replay-btn" id="prepReplayBoardBtn" aria-label="Odtwórz">🔊 Odtwórz</button>
                 </div>
                 <div class="prep-actions">
                     <button type="button" class="prep-btn primary" id="prepDrawBoardBtn" style="display:none;">Losuj</button>
@@ -189,7 +191,10 @@
             <button type="button" class="prep-back-btn" id="prepBackBtn" aria-label="Cofnij (przytrzymaj 1 s)"><span class="prep-back-btn-text">↩ Cofnij</span></button>
         </div>
         <div class="timer-area" id="timerArea">
-            <div class="current-player-name" id="currentPlayerName">---</div>
+            <div class="current-player-row">
+                <div class="current-player-name" id="currentPlayerName">---</div>
+                <button type="button" class="current-player-replay-btn" id="currentPlayerReplayBtn" aria-label="Odtwórz turę" title="Odtwórz (na telefonie użyj, jeśli nie słyszysz)">🔊</button>
+            </div>
             <div class="current-player-label" id="currentPlayerLabel">Tura gracza</div>
             <div class="timer-display">
                 <div class="mars-planet">
@@ -904,12 +909,15 @@
             prepWheel: $('prepWheel'),
             prepBoardResultWrap: $('prepBoardResultWrap'),
             prepBoardResultNumber: $('prepBoardResultNumber'),
+            prepReplayFirstBtn: $('prepReplayFirstBtn'),
+            prepReplayBoardBtn: $('prepReplayBoardBtn'),
             prepDrawBoardBtn: $('prepDrawBoardBtn'),
             prepToDraftBtn: $('prepToDraftBtn'),
             prepDraftCircleWrap: $('prepDraftCircleWrap'),
             prepStartFirstGenBtn: $('prepStartFirstGenBtn'),
             prepBackBtn: $('prepBackBtn'),
-            timerArea: $('timerArea')
+            timerArea: $('timerArea'),
+            currentPlayerReplayBtn: $('currentPlayerReplayBtn')
         };
         
         // =============================================
@@ -1735,6 +1743,7 @@
             if (currentPlayer) {
                 el.currentPlayerName.textContent = currentPlayer.name;
                 el.currentPlayerName.style.color = COLOR_HEX[currentPlayer.color];
+                if (el.currentPlayerReplayBtn) el.currentPlayerReplayBtn.style.display = state.isHost ? 'inline-flex' : 'none';
                 
                 const isMyTurn = currentPlayerId === state.playerId;
                 el.currentPlayerLabel.textContent = isMyTurn ? 'Twoja tura!' : 'Tura gracza';
@@ -1760,6 +1769,8 @@
                 }
                 el.passBtn.style.background = `linear-gradient(135deg, ${COLOR_HEX[currentPlayer.color]}, ${COLOR_HEX[currentPlayer.color]})`;
                 el.passBtn.style.boxShadow = `0 8px 32px ${COLOR_HEX[currentPlayer.color]}66`;
+            } else if (el.currentPlayerReplayBtn) {
+                el.currentPlayerReplayBtn.style.display = 'none';
             }
             
             // Players strip
@@ -1912,6 +1923,7 @@
                         el.prepFirstResultName.style.color = first && first.color ? (COLOR_HEX[first.color] || '') : '';
                     }
                     if (el.prepFirstResultWrap) el.prepFirstResultWrap.style.display = 'block';
+                    if (el.prepReplayFirstBtn) el.prepReplayFirstBtn.style.display = state.isHost ? 'inline-block' : 'none';
                     if (el.prepOrderListWrap) el.prepOrderListWrap.style.display = 'block';
                     if (el.prepOrderList) el.prepOrderList.innerHTML = playerOrder.map((pid, index) => {
                         const p = players[pid];
@@ -1940,6 +1952,7 @@
                 if (el.prepWheelWrap) el.prepWheelWrap.style.display = boardNum == null ? 'block' : 'none';
                 if (el.prepBoardResultWrap) el.prepBoardResultWrap.style.display = boardNum != null ? 'block' : 'none';
                 if (el.prepBoardResultNumber && boardNum != null) el.prepBoardResultNumber.textContent = String(boardNum);
+                if (el.prepReplayBoardBtn) el.prepReplayBoardBtn.style.display = (state.isHost && boardNum != null) ? 'inline-block' : 'none';
                 if (el.prepDrawBoardBtn) el.prepDrawBoardBtn.style.display = (state.isHost && boardNum == null) ? 'block' : 'none';
                 if (el.prepToDraftBtn) el.prepToDraftBtn.style.display = boardNum != null ? 'block' : 'none';
                 if (el.prepWheel) {
@@ -2795,6 +2808,28 @@
         if (el.prepDrawBoardBtn) el.prepDrawBoardBtn.addEventListener('click', () => { try { runBoardDraw(); } catch (e) { console.error('[prep] draw board', e); } });
         if (el.prepToDraftBtn) el.prepToDraftBtn.addEventListener('click', () => { try { prepToDraft(); } catch (e) { console.error('[prep] to draft', e); } });
         if (el.prepStartFirstGenBtn) el.prepStartFirstGenBtn.addEventListener('click', () => { try { startFirstGeneration(); } catch (e) { console.error('[prep] start first gen', e); } });
+        if (el.prepReplayFirstBtn) el.prepReplayFirstBtn.addEventListener('click', () => {
+            if (!state.isHost || !state.gameState) return;
+            const order = state.gameState.playerOrder || [];
+            const players = state.gameState.players || {};
+            const firstId = order[0];
+            const name = players[firstId]?.name || '—';
+            hostSpeak('Zaczyna ' + name);
+        });
+        if (el.prepReplayBoardBtn) el.prepReplayBoardBtn.addEventListener('click', () => {
+            if (!state.isHost || !state.gameState) return;
+            const n = state.gameState.boardNumber;
+            if (n != null) hostSpeak('Plansza numer ' + n);
+        });
+        if (el.currentPlayerReplayBtn) el.currentPlayerReplayBtn.addEventListener('click', () => {
+            if (!state.isHost || !state.gameState) return;
+            const order = state.gameState.playerOrder || [];
+            const idx = state.gameState.currentPlayerIndex;
+            const players = state.gameState.players || {};
+            const pid = order[idx];
+            const name = players[pid]?.name || el.currentPlayerName?.textContent || '—';
+            hostSpeak(name);
+        });
         if (el.prepBackBtn) {
             el.prepBackBtn.addEventListener('mousedown', startPrepBackHold);
             el.prepBackBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startPrepBackHold(); }, { passive: false });
