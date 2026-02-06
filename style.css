@@ -106,7 +106,8 @@ body {
 .screen.active { display: flex; }
 
 /* LOBBY SCREEN */
-.lobby-screen { justify-content: center; align-items: center; padding: 24px; text-align: center; }
+.lobby-screen { justify-content: center; align-items: center; padding: 24px; text-align: center; position: relative; }
+.lobby-version { position: absolute; bottom: max(12px, env(safe-area-inset-bottom)); right: max(12px, env(safe-area-inset-right)); font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.05em; }
 
 /* Mars Planet Visual */
 .mars-planet-lobby {
