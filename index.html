@@ -1613,13 +1613,11 @@
                                 state.warningPlayed = false;
                                 state.timeUpPlayed = false;
                                 
-                                // Announce player (delay can be extended if we just announced "X spasował")
-                                const baseDelay = 100;
+                                // Ogłoś gracza – bez opóźnienia (lepsze dla TTS), chyba że był „X spasował”
                                 const now = Date.now();
                                 const extraDelay = (state.deferNextTurnAnnouncementUntil && now < state.deferNextTurnAnnouncementUntil)
                                     ? (state.deferNextTurnAnnouncementUntil - now)
                                     : 0;
-                                // Ensure only the latest turn announcement fires
                                 if (state.pendingTurnAnnounceTimeoutId) {
                                     clearTimeout(state.pendingTurnAnnounceTimeoutId);
                                 }
@@ -1627,7 +1625,7 @@
                                     playTurnStart();
                                     hostSpeak(currentPlayer.name);
                                     state.pendingTurnAnnounceTimeoutId = null;
-                                }, baseDelay + extraDelay);
+                                }, extraDelay);
                             }
                             
                             // Mark as announced
@@ -1985,8 +1983,7 @@
                         }).then(() => {
                             const first = players[firstPlayerId];
                             if (first?.name) {
-                                const msg = `Zaczyna ${first.name}`;
-                                setTimeout(() => hostSpeak(msg), 150);
+                                hostSpeak(`Zaczyna ${first.name}`);
                             }
                         }).catch((err) => {
                             console.error('[prep] runFirstPlayerDraw update failed', err);
@@ -2042,8 +2039,7 @@
                         console.error('[prep] runBoardDraw update failed', err);
                         alert('Nie udało się zapisać numeru planszy. Sprawdź połączenie.');
                     });
-                    const boardMsg = `Plansza numer ${result}`;
-                    setTimeout(() => hostSpeak(boardMsg), 150);
+                    hostSpeak(`Plansza numer ${result}`);
                 } catch (e) {
                     console.error('[prep] runBoardDraw timeout', e);
                 }
@@ -2123,15 +2119,8 @@
             }
             const firstPlayer = data.players?.[playerOrder[0]];
             if (firstPlayer?.name) {
-                const nameToSpeak = firstPlayer.name;
                 playTurnStart();
-                setTimeout(() => {
-                    try {
-                        hostSpeak(nameToSpeak);
-                    } catch (e) {
-                        console.warn('[prep] startFirstGeneration announce', e);
-                    }
-                }, 200);
+                hostSpeak(firstPlayer.name);
             }
         }
         
