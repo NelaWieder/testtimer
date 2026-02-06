@@ -443,22 +443,19 @@
                 }
             },
             
-            // Komunikaty głosowe (czytanie) – WYŁĄCZNIE na urządzeniu hosta
+            // Komunikaty głosowe (czytanie) – WYŁĄCZNIE na urządzeniu hosta. Nigdy nie rzuca – błędy są łapane.
             speak(text) {
-                if (!state || !state.isHost) return;
-                if (state.isMuted) return;
-                
-                if (!('speechSynthesis' in window)) {
-                    console.log('[TTS] No speechSynthesis support');
-                    return;
-                }
-                
-                console.log('[TTS] ▶ SPEAKING:', text, '| Unlocked:', this.isUnlocked, '| Voice:', this.polishVoice?.name || 'default');
-                
-                const platform = this.getPlatform();
-                
-                // ALWAYS cancel before new speech (critical for iOS!)
-                speechSynthesis.cancel();
+                try {
+                    if (!state || !state.isHost) return;
+                    if (state.isMuted) return;
+                    if (text == null || typeof text !== 'string') return;
+                    text = String(text).trim();
+                    if (!text) return;
+                    
+                    if (!('speechSynthesis' in window)) return;
+                    
+                    const platform = this.getPlatform();
+                    speechSynthesis.cancel();
 
                 const speakNow = () => {
                     try {
@@ -748,10 +745,12 @@
                 if (platform === 'ios') {
                     setTimeout(speakNow, 100);
                 } else if (platform === 'android') {
-                    // Android: call immediately, no rAF or setTimeout (matches working version)
                     speakNow();
                 } else {
                     setTimeout(speakNow, 50);
+                }
+                } catch (e) {
+                    console.warn('[TTS] speak() error (host only):', e);
                 }
             },
             
