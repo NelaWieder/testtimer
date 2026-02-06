@@ -1029,6 +1029,17 @@
             setTimeout(() => playBeep(1047, t * 2, 'sine', 0.4), t * 3);
         }
         
+        /** Ogłoszenie głosowe tylko na urządzeniu hosta – zawsze używaj zamiast TTS.speak w kontekście gry. */
+        function hostSpeak(text) {
+            if (!state || !state.isHost) return;
+            if (typeof text !== 'string' || !text.trim()) return;
+            try {
+                if (typeof TTS !== 'undefined' && TTS.speak) TTS.speak(text);
+            } catch (e) {
+                console.warn('[hostSpeak]', e);
+            }
+        }
+        
         // =============================================
         // WAKE LOCK API
         // =============================================
@@ -1436,7 +1447,7 @@
                             if (!isEndOfGeneration) {
                                 // Admin Time was just activated - host announces
                                 console.log('[ADMIN TIME] Admin Time activated, host announcing');
-                                TTS.speak('Admin time');
+                                hostSpeak('Admin time');
                             } else {
                                 console.log('[ADMIN TIME] Skipping announcement - end of generation, not Admin Time');
                             }
@@ -1467,7 +1478,7 @@
 
                             if (activeRemaining === 0) {
                                 // Last active player passed -> end generation (priority)
-                                TTS.speak(`Koniec pokolenia ${data.generation || 1}`);
+                                hostSpeak(`Koniec pokolenia ${data.generation || 1}`);
                                 const endTime = Date.now();
                                 const currentPlayerId = playerOrder[data.currentPlayerIndex];
                                 const turnStartTime = data.turnStartTime || endTime;
@@ -1486,9 +1497,7 @@
                                 // Announce each newly passed player (usually one)
                                 newlyPassed.forEach(pid => {
                                     const p = data.players?.[pid];
-                                    if (p?.name) {
-                                        TTS.speak(`${p.name} spasował`);
-                                    }
+                                    if (p?.name) hostSpeak(`${p.name} spasował`);
                                 });
                                 // Defer the next "turn start" announcement to avoid overlap
                                 state.deferNextTurnAnnouncementUntil = Date.now() + 1400;
@@ -1522,28 +1531,12 @@
                         const generationChanged = data.generation !== state.lastAnnouncedGeneration;
                         
                         // CRITICAL: Skip announcement if we've already announced this exact turnStartTime
-                        // This prevents double announcement on iOS where listener may fire before TTS.speak() completes
+                        // Zapobiega podwójnemu ogłoszeniu (np. na iOS gdy listener zdąży przed hostSpeak)
                         const alreadyAnnounced = state.lastAnnouncedTurnTime === data.turnStartTime;
                         
-                        // Also check if this is the first snapshot after game start
                         const isFirstSnapshot = !prevGameState || prevGameState.state !== 'playing';
-                        
-                        // CRITICAL: If game start was just announced, skip this announcement
-                        // This prevents double announcement on iOS
-                        const skipDueToGameStart = state.gameStartAnnounced && isFirstSnapshot && data.generation === 1 && data.currentPlayerIndex === 0;
-                        
-                        // CRITICAL: If this is first snapshot of game start and first player hasn't been announced yet,
-                        // announce it here (fallback in case startGame() TTS didn't fire)
                         const isGameStartFirstPlayer = isFirstSnapshot && data.generation === 1 && data.currentPlayerIndex === 0;
                         const firstPlayerNotAnnounced = isGameStartFirstPlayer && state.lastAnnouncedTurnTime !== data.turnStartTime;
-                        
-                        console.log('[TURN CHECK] turnStartTime:', data.turnStartTime, 
-                                    'lastAnnounced:', state.lastAnnouncedTurnTime,
-                                    'changed:', turnTimeChanged,
-                                    'alreadyAnnounced:', alreadyAnnounced,
-                                    'isFirstSnapshot:', isFirstSnapshot,
-                                    'skipDueToGameStart:', skipDueToGameStart,
-                                    'firstPlayerNotAnnounced:', firstPlayerNotAnnounced);
                         
                         // Announce first player if not yet announced (fallback)
                         if (firstPlayerNotAnnounced && state.isHost) {
@@ -1553,21 +1546,19 @@
                             if (currentPlayer) {
                                 console.log('[TURN] First player not announced yet, announcing now:', currentPlayer.name);
                                 playTurnStart();
-                                TTS.speak(currentPlayer.name);
+                                hostSpeak(currentPlayer.name);
                                 state.lastAnnouncedTurnTime = data.turnStartTime;
                                 state.lastAnnouncedGeneration = data.generation;
                                 state.gameStartAnnounced = true;
-                                // Clear flag after delay
-                                setTimeout(() => {
-                                    state.gameStartAnnounced = false;
-                                }, 2000);
-                                return; // Don't continue with normal turn check
+                                setTimeout(() => { state.gameStartAnnounced = false; }, 2000);
+                                return;
                             }
                         }
                         
-                        // Only announce if turn changed AND we haven't already announced this exact time
-                        // AND we're not skipping due to game start announcement
-                        if (turnTimeChanged && !alreadyAnnounced && !skipDueToGameStart) {
+                        // Ogłaszaj przy każdej zmianie tury, jeśli jeszcze nie ogłosiliśmy tego turnStartTime.
+                        // Nie używamy skipDueToGameStart – pierwsza tura jest już ogłoszona w startFirstGeneration
+                        // lub w fallbacku powyżej; kolejne tury (2, 3, 4…) ogłaszamy zawsze.
+                        if (turnTimeChanged && !alreadyAnnounced) {
                             // Nowa tura! Ogłoś gracza
                             const playerOrder = data.playerOrder || [];
                             const currentPlayerId = playerOrder[data.currentPlayerIndex];
@@ -1618,7 +1609,7 @@
                                 }
                                 state.pendingTurnAnnounceTimeoutId = setTimeout(() => {
                                     playTurnStart();
-                                    TTS.speak(currentPlayer.name);
+                                    hostSpeak(currentPlayer.name);
                                     state.pendingTurnAnnounceTimeoutId = null;
                                 }, baseDelay + extraDelay);
                             }
@@ -1659,9 +1650,10 @@
                         state.warningPlayed = true;
                     }
                     
-                    // Time up
+                    // Time up – dźwięk + ogłoszenie głosowe
                     if (remaining <= 0.1 && remaining > -0.5 && !state.timeUpPlayed) {
                         playTimeUp();
+                        hostSpeak('Koniec czasu');
                         state.timeUpPlayed = true;
                     }
                 }
@@ -1971,7 +1963,10 @@
                             prepPhase: 'first_player'
                         }).then(() => {
                             const first = players[firstPlayerId];
-                            if (first?.name && typeof TTS !== 'undefined' && TTS.speak) TTS.speak(`Zaczyna ${first.name}`);
+                            if (first?.name) {
+                                const msg = `Zaczyna ${first.name}`;
+                                setTimeout(() => hostSpeak(msg), 150);
+                            }
                         }).catch((err) => {
                             console.error('[prep] runFirstPlayerDraw update failed', err);
                             if (el.prepDrawFirstBtn) el.prepDrawFirstBtn.style.display = 'block';
@@ -2021,7 +2016,8 @@
                         console.error('[prep] runBoardDraw update failed', err);
                         alert('Nie udało się zapisać numeru planszy. Sprawdź połączenie.');
                     });
-                    if (typeof TTS !== 'undefined' && TTS.speak) TTS.speak(`Plansza numer ${result}`);
+                    const boardMsg = `Plansza numer ${result}`;
+                    setTimeout(() => hostSpeak(boardMsg), 150);
                 } catch (e) {
                     console.error('[prep] runBoardDraw timeout', e);
                 }
@@ -2101,12 +2097,15 @@
             }
             const firstPlayer = data.players?.[playerOrder[0]];
             if (firstPlayer?.name) {
-                try {
-                    if (typeof playTurnStart === 'function') playTurnStart();
-                    if (typeof TTS !== 'undefined' && TTS.speak) TTS.speak(firstPlayer.name);
-                } catch (e) {
-                    console.warn('[prep] TTS/playTurnStart', e);
-                }
+                const nameToSpeak = firstPlayer.name;
+                playTurnStart();
+                setTimeout(() => {
+                    try {
+                        hostSpeak(nameToSpeak);
+                    } catch (e) {
+                        console.warn('[prep] startFirstGeneration announce', e);
+                    }
+                }, 200);
             }
         }
         
@@ -2194,7 +2193,7 @@
             
             // Announce generation FIRST
             const ordinal = getPolishOrdinal(newGeneration);
-            TTS.speak(`Pokolenie ${ordinal}`);
+            hostSpeak(`Pokolenie ${ordinal}`);
             
             // Set turn time in future for delay
             const newTurnTime = Date.now() + 2500;
@@ -2222,7 +2221,7 @@
             // Announce first player after delay
             setTimeout(() => {
                 playTurnStart();
-                TTS.speak(firstPlayer?.name);
+                hostSpeak(firstPlayer?.name || '');
             }, 2500);
         }
         
