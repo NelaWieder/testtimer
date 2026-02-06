@@ -640,13 +640,17 @@ body {
 @keyframes iconPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
 .admin-overlay h2 { font-family: var(--font-display); font-size: clamp(1.4rem, 6vw, 2rem); font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--warning); margin-bottom: 10px; }
 .admin-overlay p { color: var(--text-secondary); margin-bottom: 32px; font-size: 0.9rem; }
-.admin-overlay-draft-order { margin-bottom: 24px; text-align: left; width: 100%; max-width: 280px; }
-.admin-draft-title { font-family: var(--font-display); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
-.admin-draft-list { background: rgba(10, 1, 24, 0.5); border-radius: var(--radius-md); padding: 12px 14px; border: 1px solid rgba(168, 85, 247, 0.2); }
-.admin-draft-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 0.95rem; border-bottom: 1px solid rgba(168, 85, 247, 0.08); }
-.admin-draft-row:last-child { border-bottom: none; }
-.admin-draft-num { color: var(--primary); font-weight: 700; min-width: 1.5em; }
-.admin-draft-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.admin-overlay-draft-order { margin-bottom: 24px; text-align: center; width: 100%; max-width: 300px; }
+.admin-draft-title { font-family: var(--font-display); font-size: 0.7rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
+.admin-draft-circle-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.admin-draft-circle { position: relative; width: 200px; height: 200px; border-radius: 50%; border: 2px solid rgba(168, 85, 247, 0.35); background: rgba(10, 1, 24, 0.4); flex-shrink: 0; }
+.admin-draft-arrow { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.admin-draft-arrow-path { opacity: 0.9; }
+.admin-draft-item { position: absolute; left: 50%; top: 50%; width: 64px; margin-left: -32px; margin-top: -20px; display: flex; flex-direction: column; align-items: center; gap: 2px; transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-72px); font-size: 0.75rem; }
+.admin-draft-item .admin-draft-num { color: var(--primary); font-weight: 700; font-size: 0.7rem; }
+.admin-draft-item .admin-draft-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 6px currentColor; }
+.admin-draft-item .admin-draft-name { max-width: 56px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
+.admin-draft-direction-label { font-size: 0.65rem; color: var(--accent-cyan); letter-spacing: 0.05em; text-transform: uppercase; }
 .admin-overlay-buttons { display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .admin-overlay-footer { margin-top: auto; padding-top: 24px; display: none; justify-content: center; }
 .resume-btn { padding: 18px 48px; font-family: var(--font-display); font-size: 1rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--bg-dark); background: linear-gradient(135deg, var(--warning), #fcd34d); border: none; border-radius: var(--radius-md); cursor: pointer; box-shadow: 0 0 30px rgba(251, 191, 36, 0.4); }

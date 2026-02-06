@@ -45,7 +45,7 @@
             <input type="text" class="join-input" id="joinCodeInput" placeholder="KOD" maxlength="4" autocomplete="off">
             <button class="lobby-btn primary" id="joinRoomBtn">Dołącz</button>
         </div>
-        <div class="lobby-version">v1.1</div>
+        <div class="lobby-version">v1.11</div>
     </div>
     
     <!-- NAME MODAL -->
@@ -195,6 +195,7 @@
             <div class="host-panel-section-title">Kontrola gry (Host)</div>
             <button class="host-action-btn next-gen-btn" id="nextGenBtn" style="display:none;">🚀 Następne Pokolenie</button>
             <button class="host-action-btn" id="forceNextBtn">⏭ Zakończ turę za aktywnego gracza</button>
+            <button class="host-action-btn" id="hostPassGenBtn">📋 Pass Gen za aktywnego gracza</button>
             <button class="host-action-btn" id="undoLastMoveBtn">↩ Cofnij ostatni ruch</button>
             <button class="host-action-btn" id="hostAdminBtn">⏸ Admin Time</button>
         </div>
@@ -438,18 +439,10 @@
                 }
             },
             
-            // Main speak function
+            // Komunikaty głosowe (czytanie) tylko na telefonie hosta
             speak(text) {
-                // Guards
-                if (!state.isHost) {
-                    console.log('[TTS] Not host, skipping:', text);
-                    return;
-                }
-                
-                if (state.isMuted) {
-                    console.log('[TTS] Muted, skipping:', text);
-                    return;
-                }
+                if (!state.isHost) return;
+                if (state.isMuted) return;
                 
                 if (!('speechSynthesis' in window)) {
                     console.log('[TTS] No speechSynthesis support');
@@ -818,6 +811,7 @@
             nextGenBtn: $('nextGenBtn'),
             forceNextBtn: $('forceNextBtn'),
             undoLastMoveBtn: $('undoLastMoveBtn'),
+            hostPassGenBtn: $('hostPassGenBtn'),
             hostAdminBtn: $('hostAdminBtn'),
             muteBtn: $('muteBtn'),
             leaveGameBtn: $('leaveGameBtn'),
@@ -931,24 +925,31 @@
             }
         }
         
-        // Sound: Turn start (when switching to new player)
+        // Wszystkie dźwięki gry tylko na telefonie hosta
         function playTurnStart() {
-            console.log('[AUDIO] Playing turn start sound');
+            if (!state.isHost) return;
             playBeep(600, 100);
             setTimeout(() => playBeep(800, 150), 120);
         }
         
-        // Sound: 5-second warning
         function playWarning() {
-            console.log('[AUDIO] Playing 5s warning');
+            if (!state.isHost) return;
             playBeep(880, 150, 'sine', 0.4);
         }
         
-        // Sound: Time's up
         function playTimeUp() {
-            console.log('[AUDIO] Playing time up sound');
+            if (!state.isHost) return;
             playBeep(300, 300, 'sawtooth', 0.5);
             setTimeout(() => playBeep(250, 400, 'sawtooth', 0.5), 350);
+        }
+        
+        function playGameEndSuccess() {
+            if (!state.isHost) return;
+            const t = 180;
+            playBeep(523, t, 'sine', 0.35);
+            setTimeout(() => playBeep(659, t, 'sine', 0.35), t);
+            setTimeout(() => playBeep(784, t, 'sine', 0.35), t * 2);
+            setTimeout(() => playBeep(1047, t * 2, 'sine', 0.4), t * 3);
         }
         
         // =============================================
@@ -1698,18 +1699,34 @@
                 if (el.adminOverlayFooter) el.adminOverlayFooter.style.display = showEndGameBtn ? 'flex' : 'none';
                 el.endGameBtn.querySelector('.progress-fill').style.width = '0%';
                 
-                // Kolejność draftu: po nieparzystym pokoleniu odwrotnie do wskazówek, po parzystym zgodnie
+                // Kolejność draftu: okrąg jak zegar + strzałka kierunku przekazania kart
                 if (el.adminOverlayDraftOrder) {
                     if (isEndOfGen && playerOrder.length > 0) {
                         const gen = data.generation || 1;
                         const counterClockwise = gen % 2 === 1;
                         const draftOrder = counterClockwise ? [...playerOrder].reverse() : [...playerOrder];
                         const directionLabel = counterClockwise ? 'odwrotnie do wskazówek zegara' : 'zgodnie ze wskazówkami zegara';
-                        const listHtml = draftOrder.map((pid, i) => {
+                        const n = draftOrder.length;
+                        const itemsHtml = draftOrder.map((pid, i) => {
                             const p = data.players?.[pid];
-                            return `<div class="admin-draft-row"><span class="admin-draft-num">${i + 1}.</span><span class="admin-draft-dot" style="background:${COLOR_HEX[p?.color] || '#6b7280'}"></span><span>${p?.name || '—'}</span></div>`;
+                            const angleDeg = -90 + (360 / n) * i;
+                            return `<div class="admin-draft-item" style="--angle: ${angleDeg}deg"><span class="admin-draft-num">${i + 1}</span><span class="admin-draft-dot" style="background:${COLOR_HEX[p?.color] || '#6b7280'}"></span><span class="admin-draft-name">${p?.name || '—'}</span></div>`;
                         }).join('');
-                        el.adminOverlayDraftOrder.innerHTML = `<div class="admin-draft-title">Kolejność draftu (${directionLabel})</div><div class="admin-draft-list">${listHtml}</div>`;
+                        const arrowPath = counterClockwise
+                            ? 'M 100 18 A 82 82 0 0 0 100 182'
+                            : 'M 100 18 A 82 82 0 0 1 100 182';
+                        el.adminOverlayDraftOrder.innerHTML = `
+                            <div class="admin-draft-title">Kolejność draftu</div>
+                            <div class="admin-draft-circle-wrap">
+                                <div class="admin-draft-circle">
+                                    <svg class="admin-draft-arrow" viewBox="0 0 200 200" aria-hidden="true">
+                                        <defs><marker id="draftArrowHead" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="var(--accent-cyan)"/></marker></defs>
+                                        <path class="admin-draft-arrow-path" d="${arrowPath}" fill="none" stroke="var(--accent-cyan)" stroke-width="3" stroke-dasharray="6 5" marker-end="url(#draftArrowHead)"/>
+                                    </svg>
+                                    ${itemsHtml}
+                                </div>
+                                <div class="admin-draft-direction-label">${directionLabel}</div>
+                            </div>`;
                         el.adminOverlayDraftOrder.style.display = 'block';
                     } else {
                         el.adminOverlayDraftOrder.innerHTML = '';
@@ -1729,6 +1746,13 @@
                 const th = data.turnHistory || {};
                 const hasTurnToUndo = Object.values(th).some(v => v && v.playerId != null && v.startTime != null && v.endTime != null);
                 el.undoLastMoveBtn.disabled = data.isPaused || !hasTurnToUndo;
+            }
+            
+            // Pass Gen za aktywnego: wyłącz gdy pauza lub aktywny gracz już spasował pokolenie
+            if (state.isHost && el.hostPassGenBtn) {
+                const currentPlayerId = playerOrder[data.currentPlayerIndex];
+                const activeAlreadyPassed = currentPlayerId && data.players?.[currentPlayerId]?.passedGen;
+                el.hostPassGenBtn.disabled = data.isPaused || !!activeAlreadyPassed;
             }
             
             el.adminTimeBtn.classList.toggle('active', data.isPaused);
@@ -1772,17 +1796,19 @@
             });
         }
         
-        // PASS GEN
+        // PASS GEN (gracz w swojej turze lub host za aktywnego gracza)
         async function passGen() {
             if (!state.gameState) return;
             
             const playerOrder = state.gameState.playerOrder;
             const currentPlayerId = playerOrder[state.gameState.currentPlayerIndex];
             
-            if (currentPlayerId !== state.playerId) return;
+            if (currentPlayerId !== state.playerId && !state.isHost) return;
             
-            // Mark current player as passed
-            await update(ref(db, `rooms/${state.roomId}/players/${state.playerId}`), {
+            const playerIdToPass = state.isHost ? currentPlayerId : state.playerId;
+            if (state.players[playerIdToPass]?.passedGen) return;
+            
+            await update(ref(db, `rooms/${state.roomId}/players/${playerIdToPass}`), {
                 passedGen: true
             });
             // Room flow (advancing turn / ending generation) is handled by the HOST via the Firebase listener.
@@ -1872,6 +1898,7 @@
             if (finalTurnEntry) {
                 statsData.turnHistory = { ...(data.turnHistory || {}), [`${gameEndTime}_end`]: finalTurnEntry };
             }
+            playGameEndSuccess();
             showStatsScreen(statsData);
         }
         
@@ -2065,7 +2092,7 @@
             });
         }
         
-        // Cofnij ostatni ruch (tylko host) – przywraca poprzedniego gracza i usuwa ostatni wpis z turnHistory
+        // Cofnij ostatni ruch (tylko host) – przywraca stan gry, usuwa wpis z turnHistory, odznacza passedGen i ewent. overlay "Koniec pokolenia"
         async function undoLastMove() {
             if (!state.isHost || !state.gameState) return;
             if (state.gameState.isPaused) return;
@@ -2083,11 +2110,24 @@
             state.lastAnnouncedTurnTime = lastVal.startTime;
             state.lastAnnouncedGeneration = state.gameState.generation || 1;
             
-            await update(ref(db, `rooms/${state.roomId}`), {
+            const updatePayload = {
                 currentPlayerIndex: prevIndex,
                 turnStartTime: lastVal.startTime,
-                [`turnHistory/${lastKey}`]: null
-            });
+                [`turnHistory/${lastKey}`]: null,
+                [`players/${lastVal.playerId}/passedGen`]: false
+            };
+            
+            const isEndOfGenOverlay = state.gameState.overlayTitle && state.gameState.overlayTitle.includes('Koniec pokolenia');
+            if (isEndOfGenOverlay) {
+                const gen = state.gameState.generation || 1;
+                updatePayload.isPaused = false;
+                updatePayload.overlayTitle = null;
+                updatePayload.overlayText = null;
+                updatePayload.overlayButton = null;
+                updatePayload[`generationEndTimes/${gen}`] = null;
+            }
+            
+            await update(ref(db, `rooms/${state.roomId}`), updatePayload);
         }
         
         async function leaveRoom() {
@@ -2401,6 +2441,12 @@
             el.hostPanel.classList.remove('open');
             el.hostPanelBackdrop.classList.remove('open');
             undoLastMove();
+        });
+        
+        el.hostPassGenBtn.addEventListener('click', () => {
+            el.hostPanel.classList.remove('open');
+            el.hostPanelBackdrop.classList.remove('open');
+            passGen();
         });
         
         el.hostAdminBtn.addEventListener('click', () => {
