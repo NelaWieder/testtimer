@@ -1570,6 +1570,7 @@
                 await update(ref(db, `rooms/${state.roomId}`), {
                     state: 'prep',
                     prepPhase: 'first_player',
+                    playerOrder: null,
                     boardId: null,
                     gameStartTime: now,
                     turnDuration: state.turnDuration
@@ -2516,6 +2517,7 @@
             
             const updatePayload = {
                 state: 'finished',
+                playerOrder: null,
                 boardId: null,
                 gameEndTime,
                 finalGeneration,
