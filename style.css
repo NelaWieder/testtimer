@@ -999,12 +999,18 @@ body {
 .prep-mars-wrap.prep-mars-drawing .prep-mars-globe {
     animation-duration: 8s;
 }
+.prep-mars-wrap {
+    clip-path: circle(50% at 50% 50%);
+}
 .prep-mars-map {
     position: absolute;
     inset: 0;
+    width: 100%;
+    height: 100%;
     border-radius: 50%;
     overflow: hidden;
     pointer-events: none;
+    clip-path: circle(50% at 50% 50%);
 }
 .prep-mars-svg {
     width: 100%;
@@ -1015,13 +1021,17 @@ body {
     cursor: default;
     transition: filter 0.35s ease-out, opacity 0.35s ease-out;
 }
+.prep-mars-map.prep-mars-cycling .prep-mars-region {
+    transition: none;
+}
 .prep-mars-region-active {
     filter: drop-shadow(0 0 12px currentColor) brightness(1.3);
     animation: marsRegionPulse 1.2s ease-in-out infinite;
 }
 @keyframes marsRegionPulse { 0%, 100% { filter: drop-shadow(0 0 12px currentColor) brightness(1.2); } 50% { filter: drop-shadow(0 0 20px currentColor) brightness(1.4); } }
 .prep-mars-region-highlight {
-    filter: brightness(1.4) drop-shadow(0 0 10px rgba(255,255,255,0.5));
+    filter: brightness(1.75) drop-shadow(0 0 16px rgba(255,255,255,0.9)) drop-shadow(0 0 6px currentColor);
+    opacity: 1;
 }
 .prep-mars-region-dimmed {
     opacity: 0.35;
