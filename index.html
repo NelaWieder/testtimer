@@ -153,8 +153,9 @@
         <div class="prep-overlay" id="prepOverlay" style="display:none;">
             <div class="prep-phase prep-phase-first" id="prepPhaseFirst" style="display:none;">
                 <h2 class="prep-title" id="prepFirstTitle">Losowanie pierwszego gracza</h2>
-                <div class="prep-carousel-wrap" id="prepCarouselWrap" style="display:none;">
-                    <div class="prep-carousel-name" id="prepCarouselName">—</div>
+                <p class="prep-subtitle" id="prepFirstSubtitle">Kto odpali pierwszą rakietę?</p>
+                <div class="prep-capsules-wrap" id="prepCapsulesWrap" style="display:none;">
+                    <div class="prep-capsules-row" id="prepCapsulesRow"></div>
                 </div>
                 <div class="prep-result-wrap" id="prepFirstResultWrap" style="display:none;">
                     <p class="prep-result-label">Zaczyna</p>
@@ -171,24 +172,32 @@
                 </div>
             </div>
             <div class="prep-phase prep-phase-board" id="prepPhaseBoard" style="display:none;">
-                <h2 class="prep-title">Losowanie planszy</h2>
-                <div class="prep-wheel-wrap" id="prepWheelWrap">
-                    <div class="prep-wheel" id="prepWheel">
-                        <div class="prep-wheel-segment" data-n="1">1</div>
-                        <div class="prep-wheel-segment" data-n="2">2</div>
-                        <div class="prep-wheel-segment" data-n="3">3</div>
-                        <div class="prep-wheel-segment" data-n="4">4</div>
-                        <div class="prep-wheel-segment" data-n="5">5</div>
-                        <div class="prep-wheel-segment" data-n="6">6</div>
+                <h2 class="prep-title">Wybierz region lądowania</h2>
+                <p class="prep-subtitle">Mapa Marsa – losowanie planszy</p>
+                <div class="prep-mars-wrap" id="prepMarsWrap">
+                    <div class="prep-mars-map" id="prepMarsMap" aria-hidden="true">
+                        <svg viewBox="0 0 200 200" class="prep-mars-svg">
+                            <defs><filter id="prepMarsGlow"><feGaussianBlur stdDeviation="2" result="blur"/><feFlood flood-color="currentColor" flood-opacity="0.4"/><feComposite in2="blur" operator="in"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+                            <circle class="prep-mars-bg" cx="100" cy="100" r="92" fill="rgba(20,10,30,0.6)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+                            <!-- 7 klinów od środka (tharsis=0 od góry, potem cw) -->
+                            <path class="prep-mars-region" data-board-id="tharsis" d="M100 100 L100 8 A92 92 0 0 1 171.8 61.4 Z" fill="#e63946" stroke="rgba(0,0,0,0.25)" stroke-width="1"/>
+                            <path class="prep-mars-region" data-board-id="hellas" d="M100 100 L171.8 61.4 A92 92 0 0 1 189.2 120.2 Z" fill="#48cae4" stroke="rgba(0,0,0,0.25)" stroke-width="1"/>
+                            <path class="prep-mars-region" data-board-id="elysium" d="M100 100 L189.2 120.2 A92 92 0 0 1 139.6 182.8 Z" fill="#52b788" stroke="rgba(0,0,0,0.25)" stroke-width="1"/>
+                            <path class="prep-mars-region" data-board-id="vastitas" d="M100 100 L139.6 182.8 A92 92 0 0 1 62.3 183.7 Z" fill="#1d3557" stroke="rgba(0,0,0,0.25)" stroke-width="1"/>
+                            <path class="prep-mars-region" data-board-id="utopia" d="M100 100 L62.3 183.7 A92 92 0 0 1 10.8 120.2 Z" fill="#e76f51" stroke="rgba(0,0,0,0.25)" stroke-width="1"/>
+                            <path class="prep-mars-region" data-board-id="terra" d="M100 100 L10.8 120.2 A92 92 0 0 1 28.2 61.4 Z" fill="#7b2cbf" stroke="rgba(0,0,0,0.25)" stroke-width="1"/>
+                            <path class="prep-mars-region" data-board-id="arabia" d="M100 100 L28.2 61.4 A92 92 0 0 1 100 8 Z" fill="#e9c46a" stroke="rgba(0,0,0,0.25)" stroke-width="1"/>
+                        </svg>
+                        <div class="prep-mars-center" id="prepMarsCenter"></div>
                     </div>
                 </div>
-                <div class="prep-result-wrap" id="prepBoardResultWrap" style="display:none;">
-                    <p class="prep-result-label">Plansza</p>
-                    <p class="prep-result-number" id="prepBoardResultNumber">—</p>
+                <div class="prep-board-result-wrap" id="prepBoardResultWrap" style="display:none;">
+                    <p class="prep-board-result-name" id="prepBoardResultName">—</p>
+                    <p class="prep-board-result-trait" id="prepBoardResultTrait">—</p>
                     <button type="button" class="prep-replay-btn" id="prepReplayBoardBtn" aria-label="Odtwórz">🔊 Odtwórz</button>
                 </div>
                 <div class="prep-actions">
-                    <button type="button" class="prep-btn primary" id="prepDrawBoardBtn" style="display:none;">Losuj</button>
+                    <button type="button" class="prep-btn primary" id="prepDrawBoardBtn" style="display:none;">Losuj region</button>
                     <button type="button" class="prep-btn primary" id="prepToDraftBtn" style="display:none;">Przygotowanie do gry</button>
                 </div>
             </div>
@@ -315,6 +324,18 @@
         const COLORS = ['blue', 'red', 'green', 'yellow', 'black'];
         const COLOR_HEX = { red: '#f43f5e', blue: '#3b82f6', green: '#22c55e', yellow: '#facc15', black: '#6b7280' };
         const PREDEFINED_ORDER = ['Przemek', 'Karol', 'Benek', 'Mateusz'];
+        
+        const BOARDS = [
+            { id: 'tharsis', name: 'Tharsis', color: '#e63946', shortTrait: 'Noctis, Valles Marineris' },
+            { id: 'hellas', name: 'Hellas', color: '#48cae4', shortTrait: 'Biegun południowy, wielki krater' },
+            { id: 'elysium', name: 'Elysium', color: '#52b788', shortTrait: 'Oceany na północy, Olympus Mons' },
+            { id: 'vastitas', name: 'Vastitas Borealis', color: '#1d3557', shortTrait: 'Lodowa północ' },
+            { id: 'utopia', name: 'Utopia Planitia', color: '#e76f51', shortTrait: 'Tytan, stal – północ' },
+            { id: 'terra', name: 'Terra Cimmeria', color: '#7b2cbf', shortTrait: 'Wyżyny, kratery' },
+            { id: 'arabia', name: 'Arabia Terra', color: '#e9c46a', shortTrait: 'Wyżyny, darmowe karty' }
+        ];
+        function getBoardById(id) { return BOARDS.find(b => b.id === id) || null; }
+        function getBoardByNumber(n) { return BOARDS[Math.max(0, (n || 1) - 1)] || BOARDS[0]; }
         
         // Polish ordinal numbers for generation announcement
         const POLISH_ORDINALS = {
@@ -914,21 +935,24 @@
             statsList: $('statsList'),
             statsCloseBtn: $('statsCloseBtn'),
             prepOverlay: $('prepOverlay'),
+            prepFirstSubtitle: $('prepFirstSubtitle'),
             prepPhaseFirst: $('prepPhaseFirst'),
             prepPhaseBoard: $('prepPhaseBoard'),
             prepPhaseDraft: $('prepPhaseDraft'),
-            prepCarouselWrap: $('prepCarouselWrap'),
-            prepCarouselName: $('prepCarouselName'),
+            prepCapsulesWrap: $('prepCapsulesWrap'),
+            prepCapsulesRow: $('prepCapsulesRow'),
             prepFirstResultWrap: $('prepFirstResultWrap'),
             prepFirstResultName: $('prepFirstResultName'),
             prepOrderListWrap: $('prepOrderListWrap'),
             prepOrderList: $('prepOrderList'),
             prepDrawFirstBtn: $('prepDrawFirstBtn'),
             prepBoardDrawBtn: $('prepBoardDrawBtn'),
-            prepWheelWrap: $('prepWheelWrap'),
-            prepWheel: $('prepWheel'),
+            prepMarsWrap: $('prepMarsWrap'),
+            prepMarsMap: $('prepMarsMap'),
+            prepMarsCenter: $('prepMarsCenter'),
             prepBoardResultWrap: $('prepBoardResultWrap'),
-            prepBoardResultNumber: $('prepBoardResultNumber'),
+            prepBoardResultName: $('prepBoardResultName'),
+            prepBoardResultTrait: $('prepBoardResultTrait'),
             prepReplayFirstBtn: $('prepReplayFirstBtn'),
             prepReplayBoardBtn: $('prepReplayBoardBtn'),
             prepDrawBoardBtn: $('prepDrawBoardBtn'),
@@ -2037,7 +2061,6 @@
             const players = data.players && typeof data.players === 'object' ? data.players : {};
             
             if (phase === 'first_player') {
-                if (el.prepCarouselWrap) el.prepCarouselWrap.style.display = 'none';
                 if (el.prepFirstResultWrap) el.prepFirstResultWrap.style.display = 'none';
                 if (el.prepOrderListWrap) el.prepOrderListWrap.style.display = 'none';
                 if (el.prepDrawFirstBtn) el.prepDrawFirstBtn.style.display = 'none';
@@ -2045,9 +2068,23 @@
                 
                 if (playerOrder.length === 0) {
                     if (el.prepFirstTitle) el.prepFirstTitle.textContent = 'Losowanie pierwszego gracza';
+                    if (el.prepFirstSubtitle) el.prepFirstSubtitle.style.display = 'block';
+                    const defaultOrder = getDefaultPlayerOrder(players);
+                    if (el.prepCapsulesWrap) el.prepCapsulesWrap.style.display = 'flex';
+                    if (el.prepCapsulesRow) {
+                        el.prepCapsulesRow.innerHTML = defaultOrder.map((pid, index) => {
+                            const p = players[pid];
+                            return `<div class="prep-capsule" data-player-index="${index}" data-player-id="${pid}" style="--capsule-color:${COLOR_HEX[p?.color] || '#6b7280'}">
+                                <div class="prep-capsule-body"><div class="prep-capsule-color"></div><span class="prep-capsule-name">${p?.name || '—'}</span></div>
+                                <div class="prep-capsule-flame"></div>
+                            </div>`;
+                        }).join('');
+                    }
                     if (state.isHost && el.prepDrawFirstBtn) el.prepDrawFirstBtn.style.display = 'block';
                 } else {
                     if (el.prepFirstTitle) el.prepFirstTitle.textContent = 'Pierwszy gracz';
+                    if (el.prepFirstSubtitle) el.prepFirstSubtitle.style.display = 'none';
+                    if (el.prepCapsulesWrap) el.prepCapsulesWrap.style.display = 'none';
                     const first = players[playerOrder[0]];
                     if (el.prepFirstResultName) {
                         el.prepFirstResultName.textContent = first?.name || '—';
@@ -2079,17 +2116,19 @@
                     if (el.prepBoardDrawBtn) el.prepBoardDrawBtn.style.display = 'block';
                 }
             } else if (phase === 'board') {
-                const boardNum = data.boardNumber;
-                if (el.prepWheelWrap) el.prepWheelWrap.style.display = boardNum == null ? 'block' : 'none';
-                if (el.prepBoardResultWrap) el.prepBoardResultWrap.style.display = boardNum != null ? 'block' : 'none';
-                if (el.prepBoardResultNumber && boardNum != null) el.prepBoardResultNumber.textContent = String(boardNum);
-                if (el.prepReplayBoardBtn) el.prepReplayBoardBtn.style.display = (state.isHost && boardNum != null) ? 'inline-block' : 'none';
-                if (el.prepDrawBoardBtn) el.prepDrawBoardBtn.style.display = (state.isHost && boardNum == null) ? 'block' : 'none';
-                if (el.prepToDraftBtn) el.prepToDraftBtn.style.display = boardNum != null ? 'block' : 'none';
-                if (el.prepWheel) {
-                    el.prepWheel.style.transition = '';
-                    el.prepWheel.style.transform = '';
+                const boardId = data.boardId || (data.boardNumber != null ? (BOARDS[Math.max(0, data.boardNumber - 1)]?.id) : null);
+                const board = boardId ? getBoardById(boardId) : null;
+                if (el.prepMarsWrap) el.prepMarsWrap.style.display = boardId == null ? 'block' : 'none';
+                if (el.prepBoardResultWrap) el.prepBoardResultWrap.style.display = boardId != null ? 'block' : 'none';
+                if (board) {
+                    if (el.prepBoardResultName) el.prepBoardResultName.textContent = board.name;
+                    if (el.prepBoardResultName) el.prepBoardResultName.style.color = board.color;
+                    if (el.prepBoardResultTrait) el.prepBoardResultTrait.textContent = board.shortTrait;
                 }
+                if (el.prepMarsMap) el.prepMarsMap.querySelectorAll('.prep-mars-region').forEach(r => { r.classList.remove('prep-mars-region-active', 'prep-mars-region-dimmed'); });
+                if (el.prepReplayBoardBtn) el.prepReplayBoardBtn.style.display = (state.isHost && boardId) ? 'inline-block' : 'none';
+                if (el.prepDrawBoardBtn) el.prepDrawBoardBtn.style.display = (state.isHost && boardId == null) ? 'block' : 'none';
+                if (el.prepToDraftBtn) el.prepToDraftBtn.style.display = boardId != null ? 'block' : 'none';
             } else if (phase === 'draft') {
                 if (el.prepDraftCircleWrap) {
                     if (playerOrder.length > 0) {
@@ -2129,65 +2168,47 @@
                 alert('Do losowania potrzebni są co najmniej 2 graczy w pokoju.');
                 return;
             }
-            const names = defaultOrder.map(pid => players[pid]?.name || '—');
-            if (names.length === 0) return;
             try {
-                if (el.prepFirstTitle) el.prepFirstTitle.textContent = 'Losowanie...';
+                if (el.prepFirstTitle) el.prepFirstTitle.textContent = 'Odpalanie...';
                 if (el.prepDrawFirstBtn) el.prepDrawFirstBtn.style.display = 'none';
-                if (el.prepCarouselWrap) el.prepCarouselWrap.style.display = 'flex';
             } catch (e) {
                 console.error('[prep] runFirstPlayerDraw UI', e);
                 return;
             }
-            const durationMs = 3000;
-            const stepMs = 80;
-            const t0 = Date.now();
-            let carouselIntervalId = null;
-            carouselIntervalId = setInterval(() => {
+            const randomIndex = Math.floor(Math.random() * defaultOrder.length);
+            const firstPlayerId = defaultOrder[randomIndex];
+            const buildUpMs = 1200;
+            setTimeout(() => {
                 try {
-                    const elapsed = Date.now() - t0;
-                    if (elapsed >= durationMs) {
-                        if (carouselIntervalId != null) clearInterval(carouselIntervalId);
-                        carouselIntervalId = null;
-                        if (el.prepCarouselWrap) el.prepCarouselWrap.style.display = 'none';
-                        const randomIndex = Math.floor(Math.random() * defaultOrder.length);
-                        const firstPlayerId = defaultOrder[randomIndex];
-                        const playerOrder = [...defaultOrder.slice(randomIndex), ...defaultOrder.slice(0, randomIndex)];
-                        update(ref(db, `rooms/${roomId}`), {
-                            playerOrder,
-                            prepPhase: 'first_player'
-                        }).then(() => {
-                            const first = players[firstPlayerId];
-                            console.log('[VOICE-DBG] runFirstPlayerDraw .then() – first=', first?.name, 'playerId=', firstPlayerId);
-                            if (first?.name) {
-                                const msg = `Zaczyna ${first.name}`;
-                                console.log('[VOICE-DBG] runFirstPlayerDraw -> hostSpeak:', msg);
-                                hostSpeak(msg);
-                            } else {
-                                console.log('[VOICE-DBG] runFirstPlayerDraw -> brak first.name, nie wywołuję hostSpeak');
+                    const row = el.prepCapsulesRow;
+                    if (row && row.children.length > 0) {
+                        for (let i = 0; i < row.children.length; i++) {
+                            row.children[i].classList.toggle('prep-capsule-launching', i === randomIndex);
+                            row.children[i].classList.toggle('prep-capsule-dimmed', i !== randomIndex);
+                        }
+                    }
+                } catch (e) {}
+                setTimeout(() => {
+                    const playerOrder = [...defaultOrder.slice(randomIndex), ...defaultOrder.slice(0, randomIndex)];
+                    update(ref(db, `rooms/${roomId}`), {
+                        playerOrder,
+                        prepPhase: 'first_player'
+                    }).then(() => {
+                        const first = players[firstPlayerId];
+                        if (first?.name) hostSpeak(`Zaczyna ${first.name}`);
+                    }).catch((err) => {
+                        console.error('[prep] runFirstPlayerDraw update failed', err);
+                        if (el.prepDrawFirstBtn) el.prepDrawFirstBtn.style.display = 'block';
+                        if (el.prepFirstTitle) el.prepFirstTitle.textContent = 'Losowanie pierwszego gracza';
+                        if (el.prepCapsulesRow) {
+                            for (const c of el.prepCapsulesRow.children) {
+                                c.classList.remove('prep-capsule-launching', 'prep-capsule-dimmed');
                             }
-                        }).catch((err) => {
-                            console.error('[prep] runFirstPlayerDraw update failed', err);
-                            if (el.prepDrawFirstBtn) el.prepDrawFirstBtn.style.display = 'block';
-                            if (el.prepCarouselWrap) el.prepCarouselWrap.style.display = 'none';
-                            if (el.prepFirstTitle) el.prepFirstTitle.textContent = 'Losowanie pierwszego gracza';
-                            alert('Nie udało się zapisać wyniku. Sprawdź połączenie.');
-                        });
-                        return;
-                    }
-                    const idx = Math.floor(elapsed / stepMs) % names.length;
-                    if (el.prepCarouselName) {
-                        el.prepCarouselName.textContent = names[idx] || '—';
-                        el.prepCarouselName.style.opacity = '1';
-                    }
-                } catch (e) {
-                    console.error('[prep] runFirstPlayerDraw interval', e);
-                    if (carouselIntervalId != null) clearInterval(carouselIntervalId);
-                    if (el.prepDrawFirstBtn) el.prepDrawFirstBtn.style.display = 'block';
-                    if (el.prepCarouselWrap) el.prepCarouselWrap.style.display = 'none';
-                    if (el.prepFirstTitle) el.prepFirstTitle.textContent = 'Losowanie pierwszego gracza';
-                }
-            }, stepMs);
+                        }
+                        alert('Nie udało się zapisać wyniku. Sprawdź połączenie.');
+                    });
+                }, 1500);
+            }, buildUpMs);
         }
         
         async function runBoardDraw() {
@@ -2200,32 +2221,41 @@
                 console.warn('[prep] initAudio before board draw', e);
             }
             if (el.prepDrawBoardBtn) el.prepDrawBoardBtn.style.display = 'none';
-            const durationMs = 3000;
-            const result = 1 + Math.floor(Math.random() * 6);
-            const wheel = el.prepWheel;
-            if (wheel) {
-                const segmentAngle = 360 / 6;
-                const targetRotate = 360 * 3 + (result - 1) * segmentAngle + segmentAngle / 2;
-                wheel.style.transition = `transform ${durationMs}ms cubic-bezier(0.2, 0.8, 0.3, 1)`;
-                wheel.style.transform = `rotate(-${targetRotate}deg)`;
-            }
+            const randomIndex = Math.floor(Math.random() * BOARDS.length);
+            const board = BOARDS[randomIndex];
+            const durationMs = 2500;
             setTimeout(() => {
                 try {
-                    if (wheel) wheel.style.transition = '';
-                    if (el.prepWheelWrap) el.prepWheelWrap.style.display = 'none';
-                    if (el.prepBoardResultNumber) el.prepBoardResultNumber.textContent = String(result);
-                    if (el.prepBoardResultWrap) el.prepBoardResultWrap.style.display = 'block';
-                    if (el.prepToDraftBtn) el.prepToDraftBtn.style.display = 'block';
-                    update(ref(db, `rooms/${roomId}`), { boardNumber: result }).catch((err) => {
-                        console.error('[prep] runBoardDraw update failed', err);
-                        alert('Nie udało się zapisać numeru planszy. Sprawdź połączenie.');
-                    });
-                    const boardMsg = `Plansza numer ${result}`;
-                    console.log('[VOICE-DBG] runBoardDraw -> hostSpeak:', boardMsg);
-                    hostSpeak(boardMsg);
-                } catch (e) {
-                    console.error('[prep] runBoardDraw timeout', e);
-                }
+                    const map = el.prepMarsMap;
+                    if (map) {
+                        map.querySelectorAll('.prep-mars-region').forEach(r => {
+                            const isActive = r.getAttribute('data-board-id') === board.id;
+                            r.classList.toggle('prep-mars-region-active', isActive);
+                            r.classList.toggle('prep-mars-region-dimmed', !isActive);
+                        });
+                    }
+                    if (el.prepMarsCenter) {
+                        el.prepMarsCenter.textContent = board.name;
+                        el.prepMarsCenter.style.color = board.color;
+                    }
+                } catch (e) {}
+                setTimeout(() => {
+                    try {
+                        if (el.prepMarsWrap) el.prepMarsWrap.style.display = 'none';
+                        if (el.prepBoardResultWrap) el.prepBoardResultWrap.style.display = 'block';
+                        if (el.prepBoardResultName) { el.prepBoardResultName.textContent = board.name; el.prepBoardResultName.style.color = board.color; }
+                        if (el.prepBoardResultTrait) el.prepBoardResultTrait.textContent = board.shortTrait;
+                        if (el.prepReplayBoardBtn) el.prepReplayBoardBtn.style.display = 'inline-block';
+                        if (el.prepToDraftBtn) el.prepToDraftBtn.style.display = 'block';
+                        update(ref(db, `rooms/${roomId}`), { boardId: board.id }).catch((err) => {
+                            console.error('[prep] runBoardDraw update failed', err);
+                            alert('Nie udało się zapisać planszy. Sprawdź połączenie.');
+                        });
+                        hostSpeak(`Plansza ${board.name}`);
+                    } catch (e) {
+                        console.error('[prep] runBoardDraw timeout', e);
+                    }
+                }, 800);
             }, durationMs);
         }
         
@@ -2317,7 +2347,7 @@
             if (phase === 'first_player') return;
             try {
                 if (phase === 'board') {
-                    await update(ref(db, `rooms/${state.roomId}`), { prepPhase: 'first_player', boardNumber: null });
+                    await update(ref(db, `rooms/${state.roomId}`), { prepPhase: 'first_player', boardId: null });
                 } else if (phase === 'draft') {
                     await update(ref(db, `rooms/${state.roomId}`), { prepPhase: 'board' });
                 }
@@ -2967,8 +2997,9 @@
         });
         if (el.prepReplayBoardBtn) el.prepReplayBoardBtn.addEventListener('click', () => {
             if (!state.isHost || !state.gameState) return;
-            const n = state.gameState.boardNumber;
-            if (n != null) hostSpeak('Plansza numer ' + n);
+            const boardId = state.gameState.boardId;
+            const board = boardId ? getBoardById(boardId) : (state.gameState.boardNumber != null ? getBoardByNumber(state.gameState.boardNumber) : null);
+            if (board) hostSpeak('Plansza ' + board.name);
         });
         if (el.currentPlayerReplayBtn) el.currentPlayerReplayBtn.addEventListener('click', () => {
             if (!state.isHost || !state.gameState) return;
