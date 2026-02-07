@@ -174,26 +174,9 @@
             <div class="prep-phase prep-phase-board" id="prepPhaseBoard" style="display:none;">
                 <h2 class="prep-title">Wybierz region lądowania</h2>
                 <p class="prep-subtitle">Mapa Marsa – losowanie planszy</p>
-                <div class="prep-mars-wrap" id="prepMarsWrap">
-                    <div class="prep-mars-globe" aria-hidden="true"><img src="https://upload.wikimedia.org/wikipedia/commons/0/02/OSIRIS_Mars_true_color.jpg" alt=""></div>
-                    <div class="prep-mars-map" id="prepMarsMap" aria-hidden="true">
-                        <svg viewBox="0 0 200 200" class="prep-mars-svg" preserveAspectRatio="xMidYMid slice">
-                            <defs>
-                                <filter id="prepMarsGlow"><feGaussianBlur stdDeviation="2" result="blur"/><feFlood flood-color="currentColor" flood-opacity="0.4"/><feComposite in2="blur" operator="in"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-                                <clipPath id="prepMarsClip"><circle cx="100" cy="100" r="100"/></clipPath>
-                            </defs>
-                            <g clip-path="url(#prepMarsClip)" transform="translate(100,100) scale(1.087) translate(-100,-100)">
-                                <path class="prep-mars-region" data-board-id="tharsis" d="M100 100 L100 8 A92 92 0 0 1 171.8 61.4 Z" fill="rgba(230,57,70,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-                                <path class="prep-mars-region" data-board-id="hellas" d="M100 100 L171.8 61.4 A92 92 0 0 1 189.2 120.2 Z" fill="rgba(72,202,228,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-                                <path class="prep-mars-region" data-board-id="elysium" d="M100 100 L189.2 120.2 A92 92 0 0 1 139.6 182.8 Z" fill="rgba(82,183,136,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-                                <path class="prep-mars-region" data-board-id="vastitas" d="M100 100 L139.6 182.8 A92 92 0 0 1 62.3 183.7 Z" fill="rgba(29,53,87,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-                                <path class="prep-mars-region" data-board-id="utopia" d="M100 100 L62.3 183.7 A92 92 0 0 1 10.8 120.2 Z" fill="rgba(231,111,81,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-                                <path class="prep-mars-region" data-board-id="terra" d="M100 100 L10.8 120.2 A92 92 0 0 1 28.2 61.4 Z" fill="rgba(123,44,191,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-                                <path class="prep-mars-region" data-board-id="arabia" d="M100 100 L28.2 61.4 A92 92 0 0 1 100 8 Z" fill="rgba(233,196,106,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-                            </g>
-                        </svg>
-                        <div class="prep-mars-center" id="prepMarsCenter"></div>
-                    </div>
+                <div class="prep-board-draw-wrap" id="prepBoardDrawWrap">
+                    <div class="prep-board-mars-bg" aria-hidden="true"></div>
+                    <div class="prep-board-cards-row" id="prepBoardCardsRow"></div>
                 </div>
                 <div class="prep-board-result-wrap" id="prepBoardResultWrap" style="display:none;">
                     <p class="prep-board-result-name" id="prepBoardResultName">—</p>
@@ -967,9 +950,8 @@
             prepOrderList: $('prepOrderList'),
             prepDrawFirstBtn: $('prepDrawFirstBtn'),
             prepBoardDrawBtn: $('prepBoardDrawBtn'),
-            prepMarsWrap: $('prepMarsWrap'),
-            prepMarsMap: $('prepMarsMap'),
-            prepMarsCenter: $('prepMarsCenter'),
+            prepBoardDrawWrap: $('prepBoardDrawWrap'),
+            prepBoardCardsRow: $('prepBoardCardsRow'),
             prepBoardResultWrap: $('prepBoardResultWrap'),
             prepBoardResultName: $('prepBoardResultName'),
             prepBoardResultTrait: $('prepBoardResultTrait'),
@@ -2142,14 +2124,24 @@
             } else if (phase === 'board') {
                 const boardId = data.boardId || (data.boardNumber != null ? (BOARDS[Math.max(0, data.boardNumber - 1)]?.id) : null);
                 const board = boardId ? getBoardById(boardId) : null;
-                if (el.prepMarsWrap) el.prepMarsWrap.style.display = boardId == null ? 'block' : 'none';
+                if (el.prepBoardDrawWrap) el.prepBoardDrawWrap.style.display = boardId == null ? 'block' : 'none';
                 if (el.prepBoardResultWrap) el.prepBoardResultWrap.style.display = boardId != null ? 'block' : 'none';
                 if (board) {
                     if (el.prepBoardResultName) el.prepBoardResultName.textContent = board.name;
                     if (el.prepBoardResultName) el.prepBoardResultName.style.color = board.color;
                     if (el.prepBoardResultTrait) el.prepBoardResultTrait.textContent = board.shortTrait;
                 }
-                if (el.prepMarsMap) el.prepMarsMap.querySelectorAll('.prep-mars-region').forEach(r => { r.classList.remove('prep-mars-region-active', 'prep-mars-region-dimmed', 'prep-mars-region-highlight'); });
+                if (el.prepBoardCardsRow) {
+                    el.prepBoardCardsRow.innerHTML = BOARDS.map((b, i) => `
+                        <div class="prep-board-card" data-board-id="${b.id}" data-board-index="${i}">
+                            <span class="prep-board-card-name">${b.name}</span>
+                            <span class="prep-board-card-trait">${b.shortTrait}</span>
+                        </div>
+                    `).join('');
+                    el.prepBoardCardsRow.querySelectorAll('.prep-board-card').forEach(c => {
+                        c.style.setProperty('--board-color', getBoardById(c.getAttribute('data-board-id'))?.color || '#6b7280');
+                    });
+                }
                 if (el.prepReplayBoardBtn) el.prepReplayBoardBtn.style.display = (state.isHost && boardId) ? 'inline-block' : 'none';
                 if (el.prepDrawBoardBtn) el.prepDrawBoardBtn.style.display = (state.isHost && boardId == null) ? 'block' : 'none';
                 if (el.prepToDraftBtn) el.prepToDraftBtn.style.display = (boardId != null && state.isHost) ? 'block' : 'none';
@@ -2247,30 +2239,23 @@
             if (el.prepDrawBoardBtn) el.prepDrawBoardBtn.style.display = 'none';
             const randomIndex = randomIndexUniform(BOARDS.length);
             const board = BOARDS[randomIndex];
-            const regions = el.prepMarsMap ? Array.from(el.prepMarsMap.querySelectorAll('.prep-mars-region')) : [];
-            const count = regions.length;
-            if (el.prepMarsWrap) el.prepMarsWrap.classList.add('prep-mars-drawing');
-            if (el.prepMarsMap) el.prepMarsMap.classList.add('prep-mars-cycling');
-            const stepMs = 48;
-            const totalSteps = 38 + Math.floor(Math.random() * 12);
+            const cards = el.prepBoardCardsRow ? Array.from(el.prepBoardCardsRow.querySelectorAll('.prep-board-card')) : [];
+            const count = cards.length;
+            if (el.prepBoardDrawWrap) el.prepBoardDrawWrap.classList.add('prep-board-cycling');
+            const stepMs = 55;
+            const totalSteps = 28 + Math.floor(Math.random() * 13);
             let step = 0;
-            const cycleRegion = () => {
-                if (!regions.length || step >= totalSteps) {
-                    if (el.prepMarsWrap) el.prepMarsWrap.classList.remove('prep-mars-drawing');
-                    if (el.prepMarsMap) el.prepMarsMap.classList.remove('prep-mars-cycling');
-                    regions.forEach(r => {
-                        r.classList.remove('prep-mars-region-highlight');
-                        const isActive = r.getAttribute('data-board-id') === board.id;
-                        r.classList.toggle('prep-mars-region-active', isActive);
-                        r.classList.toggle('prep-mars-region-dimmed', !isActive);
+            const cycleCard = () => {
+                if (!cards.length || step >= totalSteps) {
+                    if (el.prepBoardDrawWrap) el.prepBoardDrawWrap.classList.remove('prep-board-cycling');
+                    cards.forEach((c, i) => {
+                        c.classList.remove('prep-board-card-active');
+                        c.classList.toggle('prep-board-card-dimmed', i !== randomIndex);
+                        if (i === randomIndex) c.classList.add('prep-board-card-active');
                     });
-                    if (el.prepMarsCenter) {
-                        el.prepMarsCenter.textContent = board.name;
-                        el.prepMarsCenter.style.color = board.color;
-                    }
                     setTimeout(() => {
                         try {
-                            if (el.prepMarsWrap) el.prepMarsWrap.style.display = 'none';
+                            if (el.prepBoardDrawWrap) el.prepBoardDrawWrap.style.display = 'none';
                             if (el.prepBoardResultWrap) el.prepBoardResultWrap.style.display = 'block';
                             if (el.prepBoardResultName) { el.prepBoardResultName.textContent = board.name; el.prepBoardResultName.style.color = board.color; }
                             if (el.prepBoardResultTrait) el.prepBoardResultTrait.textContent = board.shortTrait;
@@ -2287,18 +2272,16 @@
                     }, 1200);
                     return;
                 }
-                regions.forEach((r, i) => r.classList.toggle('prep-mars-region-highlight', i === (step % count)));
+                cards.forEach((c, i) => c.classList.toggle('prep-board-card-active', i === (step % count)));
                 step++;
-                setTimeout(cycleRegion, stepMs);
+                setTimeout(cycleCard, stepMs);
             };
             if (count > 0) {
-                cycleRegion();
+                cycleCard();
             } else {
-                if (el.prepMarsWrap) el.prepMarsWrap.classList.remove('prep-mars-drawing');
-                if (el.prepMarsMap) el.prepMarsMap.classList.remove('prep-mars-cycling');
-                if (el.prepMarsCenter) { el.prepMarsCenter.textContent = board.name; el.prepMarsCenter.style.color = board.color; }
+                if (el.prepBoardDrawWrap) el.prepBoardDrawWrap.classList.remove('prep-board-cycling');
                 setTimeout(() => {
-                    if (el.prepMarsWrap) el.prepMarsWrap.style.display = 'none';
+                    if (el.prepBoardDrawWrap) el.prepBoardDrawWrap.style.display = 'none';
                     if (el.prepBoardResultWrap) el.prepBoardResultWrap.style.display = 'block';
                     if (el.prepBoardResultName) { el.prepBoardResultName.textContent = board.name; el.prepBoardResultName.style.color = board.color; }
                     if (el.prepBoardResultTrait) el.prepBoardResultTrait.textContent = board.shortTrait;
