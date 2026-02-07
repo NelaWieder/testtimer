@@ -109,7 +109,7 @@
     <!-- WAITING ROOM -->
     <div class="screen waiting-screen" id="waitingScreen">
         <div class="room-header">
-            <div class="room-code-label">Kod pokoju</div>
+            <div class="room-code-label">Kod misji</div>
             <div class="room-code" id="roomCodeDisplay">----</div>
             <div class="qr-container" id="qrContainer"></div>
         </div>
@@ -120,7 +120,7 @@
             <button class="time-btn-mini" id="timeUpMini">+</button>
         </div>
         <div class="players-waiting">
-            <div class="players-waiting-title">Gracze w pokoju</div>
+            <div class="players-waiting-title" id="playersWaitingTitle">Załoga: —. Czekamy na start.</div>
             <div id="waitingPlayersList"></div>
         </div>
         <div class="waiting-actions">
@@ -133,6 +133,9 @@
     <div class="screen game-screen" id="gameScreen">
         <div class="generation-bar">
             <div class="generation-info">
+                <span class="generation-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><path d="M12 1a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                </span>
                 <span class="generation-label">Pokolenie</span>
                 <span class="generation-number" id="genNumber">1</span>
             </div>
@@ -211,8 +214,9 @@
                 </div>
                 <div class="timer-overlay"></div>
                 <div class="timer-ring">
-                    <svg viewBox="0 0 280 280">
+                    <svg viewBox="0 0 280 280" class="timer-ring-svg">
                         <circle class="timer-ring-bg" cx="140" cy="140" r="130"/>
+                        <circle class="timer-ring-aura" id="timerRingAura" cx="140" cy="140" r="130"/>
                         <circle class="timer-ring-progress" id="timerProgress" cx="140" cy="140" r="130"/>
                     </svg>
                 </div>
@@ -247,7 +251,7 @@
     <!-- STATS OVERLAY (koniec gry) -->
     <div class="stats-overlay" id="statsOverlay">
         <div class="stats-overlay-content">
-            <h2>Koniec gry</h2>
+            <h2>Raport końcowy misji</h2>
             <div class="stats-list" id="statsList"></div>
             <button class="lobby-btn primary" id="statsCloseBtn">Zamknij</button>
         </div>
@@ -276,7 +280,7 @@
             <div class="host-panel-section-title">Pokój</div>
             <button class="host-action-btn danger" id="leaveGameBtn">🚪 Opuść grę</button>
         </div>
-        <div class="room-info-small">Kod pokoju: <span id="roomCodeSmall">----</span></div>
+        <div class="room-info-small">Kod misji: <span id="roomCodeSmall">----</span></div>
     </div>
 
     <!-- QRCode Library -->
@@ -348,7 +352,11 @@
             warningPlayed: false,
             timeUpPlayed: false,
             // Flag to prevent double announcement of first player on game start (iOS issue)
-            gameStartAnnounced: false
+            gameStartAnnounced: false,
+            prevCurrentPlayerId: null,
+            warningPopPlayed: false,
+            prevWaitingPlayerIds: [],
+            startBtnWasDisabled: true
         };
         
         let unsubscribers = [];
@@ -867,6 +875,7 @@
             timeValueMini: $('timeValueMini'),
             timeUpMini: $('timeUpMini'),
             timeDownMini: $('timeDownMini'),
+            playersWaitingTitle: $('playersWaitingTitle'),
             waitingPlayersList: $('waitingPlayersList'),
             startGameBtn: $('startGameBtn'),
             leaveRoomBtn: $('leaveRoomBtn'),
@@ -946,8 +955,18 @@
         }
         
         function showScreen(screenId) {
-            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-            $(screenId).classList.add('active');
+            const target = $(screenId);
+            const current = document.querySelector('.screen.active');
+            if (current && current !== target) {
+                current.classList.add('screen-exit');
+                setTimeout(() => {
+                    current.classList.remove('active', 'screen-exit');
+                    target.classList.add('active');
+                }, 150);
+            } else {
+                if (current) current.classList.remove('active');
+                target.classList.add('active');
+            }
         }
         
         function formatTime(seconds) {
@@ -1395,8 +1414,12 @@
         function enterWaitingRoom() {
             showScreen('waitingScreen');
             requestWakeLock();
-            el.roomCodeDisplay.textContent = state.roomId;
-            el.roomCodeSmall.textContent = state.roomId;
+            if (el.roomCodeDisplay) {
+                el.roomCodeDisplay.textContent = state.roomId;
+                el.roomCodeDisplay.classList.add('room-code-highlight');
+                setTimeout(() => el.roomCodeDisplay && el.roomCodeDisplay.classList.remove('room-code-highlight'), 500);
+            }
+            if (el.roomCodeSmall) el.roomCodeSmall.textContent = state.roomId;
             el.timeValueMini.textContent = state.turnDuration;
             generateQR(state.roomId);
             
@@ -1432,34 +1455,30 @@
         
         function updateWaitingPlayersList() {
             const players = Object.entries(state.players).sort((a, b) => a[1].order - b[1].order);
-            el.waitingPlayersList.innerHTML = players.map(([id, p], index) => {
-                const isHost = state.isHost;
-                const canMoveUp = isHost && index > 0;
-                const canMoveDown = isHost && index < players.length - 1;
-                
-                return `
-                    <div class="player-waiting-item ${!p.online ? 'offline' : ''}" data-player-id="${id}">
-                        <div class="player-waiting-color" style="background: ${COLOR_HEX[p.color]}"></div>
-                        <div class="player-waiting-name">${p.name}</div>
-                        ${p.isHost ? '<div class="player-waiting-host">Host</div>' : ''}
-                        ${id === state.playerId ? '<div class="player-waiting-you">Ty</div>' : ''}
-                        ${isHost ? `
-                            <div class="player-order-controls">
-                                <button type="button" class="order-btn order-btn-up" ${!canMoveUp ? 'disabled' : ''} data-action="up" data-player-id="${id}" aria-label="Przenieś w górę">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <polyline points="18 15 12 9 6 15"></polyline>
-                                    </svg>
-                                </button>
-                                <button type="button" class="order-btn order-btn-down" ${!canMoveDown ? 'disabled' : ''} data-action="down" data-player-id="${id}" aria-label="Przenieś w dół">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <polyline points="6 9 12 15 18 9"></polyline>
-                                    </svg>
-                                </button>
-                            </div>
-                        ` : ''}
-                    </div>
-                `;
-            }).join('');
+            const names = players.map(([, p]) => p?.name).filter(Boolean);
+            const crewText = names.length > 0 ? names.join(', ') : '—';
+            if (el.playersWaitingTitle) el.playersWaitingTitle.textContent = `Załoga: ${crewText}. Czekamy na start.`;
+            el.waitingPlayersList.innerHTML = players.map(([id, p]) => `
+                <div class="player-waiting-item ${!p.online ? 'offline' : ''}" data-player-id="${id}">
+                    <div class="player-waiting-color" style="background: ${COLOR_HEX[p.color]}"></div>
+                    <div class="player-waiting-name">${p.name}</div>
+                    ${p.isHost ? '<div class="player-waiting-host">Host</div>' : ''}
+                    ${id === state.playerId ? '<div class="player-waiting-you">Ty</div>' : ''}
+                </div>
+            `).join('');
+            const currentIds = players.map(([id]) => id);
+            const prev = state.prevWaitingPlayerIds || [];
+            const newIds = currentIds.filter(id => !prev.includes(id));
+            state.prevWaitingPlayerIds = currentIds;
+            if (el.waitingPlayersList && newIds.length > 0) {
+                newIds.forEach(pid => {
+                    const item = el.waitingPlayersList.querySelector(`.player-waiting-item[data-player-id="${pid}"]`);
+                    if (item) {
+                        item.classList.add('player-just-joined');
+                        setTimeout(() => item.classList.remove('player-just-joined'), 400);
+                    }
+                });
+            }
         }
         
         async function movePlayerOrder(playerId, direction) {
@@ -1491,8 +1510,16 @@
         function updateStartButton() {
             if (!state.isHost) return;
             const onlinePlayers = Object.values(state.players).filter(p => p.online).length;
-            el.startGameBtn.disabled = onlinePlayers < 2;
-            el.startGameBtn.textContent = onlinePlayers < 2 ? 'Minimum 2 graczy' : 'Rozpocznij grę';
+            const nowDisabled = onlinePlayers < 2;
+            if (el.startGameBtn) {
+                const wasDisabled = el.startGameBtn.disabled;
+                el.startGameBtn.disabled = nowDisabled;
+                el.startGameBtn.textContent = nowDisabled ? 'Minimum 2 graczy' : 'Rozpocznij grę';
+                if (wasDisabled && !nowDisabled) {
+                    el.startGameBtn.classList.add('just-enabled');
+                    setTimeout(() => el.startGameBtn && el.startGameBtn.classList.remove('just-enabled'), 1000);
+                }
+            }
         }
         
         async function updateTurnDuration(delta) {
@@ -1811,6 +1838,14 @@
             if (el.timerText) el.timerText.classList.toggle('overtime', remaining < 0);
             if (el.timerText) el.timerText.classList.toggle('warning', remaining <= 5 && remaining > 0);
             if (el.timerProgress) el.timerProgress.classList.toggle('overtime', remaining < 0);
+            if (el.timerArea) {
+                el.timerArea.classList.toggle('timer-urgent', remaining <= 15 && remaining > 0);
+                if (remaining <= 5 && remaining > 0 && !state.warningPopPlayed) {
+                    state.warningPopPlayed = true;
+                    el.timerArea.classList.add('warning-pop');
+                    setTimeout(() => { if (el.timerArea) el.timerArea.classList.remove('warning-pop'); }, 400);
+                } else if (remaining > 5) state.warningPopPlayed = false;
+            }
         }
         
         function updateGameUI(data) {
@@ -1821,11 +1856,18 @@
             const currentPlayer = data.players?.[currentPlayerId];
             
             if (currentPlayer) {
+                const row = el.currentPlayerName && el.currentPlayerName.parentElement;
+                if (currentPlayerId !== state.prevCurrentPlayerId && row) {
+                    row.classList.add('turn-changed');
+                    setTimeout(() => row.classList.remove('turn-changed'), 250);
+                }
+                state.prevCurrentPlayerId = currentPlayerId;
                 el.currentPlayerName.textContent = currentPlayer.name;
                 el.currentPlayerName.style.color = COLOR_HEX[currentPlayer.color];
                 if (el.currentPlayerReplayBtn) el.currentPlayerReplayBtn.style.display = state.isHost ? 'inline-flex' : 'none';
                 
                 const isMyTurn = currentPlayerId === state.playerId;
+                if (el.timerArea) el.timerArea.classList.toggle('my-turn', isMyTurn);
                 el.currentPlayerLabel.textContent = isMyTurn ? 'Twoja tura!' : 'Tura gracza';
                 
                 // Host może zawsze spasować za aktywnego gracza (przycisk "Pass {Imię}"); inaczej tylko w swojej turze
@@ -1847,10 +1889,16 @@
                 if (timerGradient) {
                     timerGradient.innerHTML = `<stop offset="0%" style="stop-color:${COLOR_HEX[currentPlayer.color]}"/><stop offset="100%" style="stop-color:${COLOR_HEX[currentPlayer.color]}"/>`;
                 }
+                const auraEl = document.getElementById('timerRingAura');
+                if (auraEl) auraEl.style.stroke = COLOR_HEX[currentPlayer.color] || 'var(--primary)';
                 el.passBtn.style.background = `linear-gradient(135deg, ${COLOR_HEX[currentPlayer.color]}, ${COLOR_HEX[currentPlayer.color]})`;
                 el.passBtn.style.boxShadow = `0 8px 32px ${COLOR_HEX[currentPlayer.color]}66`;
-            } else if (el.currentPlayerReplayBtn) {
-                el.currentPlayerReplayBtn.style.display = 'none';
+            } else {
+                state.prevCurrentPlayerId = null;
+                if (el.timerArea) el.timerArea.classList.remove('my-turn');
+                if (el.currentPlayerReplayBtn) el.currentPlayerReplayBtn.style.display = 'none';
+                const auraEl = document.getElementById('timerRingAura');
+                if (auraEl) auraEl.style.stroke = 'rgba(255,255,255,0.08)';
             }
             
             // Players strip
@@ -1863,16 +1911,19 @@
                 if (p) orderedPlayers.push({ id: pid, ...p, originalIndex: idx });
             }
             
-            el.playersStrip.innerHTML = orderedPlayers.map(p => {
+            const startPid = playerOrder[startIndex];
+            el.playersStrip.innerHTML = orderedPlayers.map((p, i) => {
                 let statusClass = '';
                 let statusText = '';
                 if (p.passedGen) { statusClass = 'passed-gen'; statusText = 'GEN'; }
                 else if (p.id === currentPlayerId) { statusClass = 'active'; }
+                if (p.id === startPid) statusClass += ' started-gen';
                 if (!p.online) statusClass += ' offline';
                 
-                return `<div class="player-chip ${statusClass}">
+                return `<div class="player-chip ${statusClass.trim()}">
                     <div class="player-chip-dot" style="background: ${COLOR_HEX[p.color]}"></div>
                     <span>${p.name}</span>
+                    ${p.id === startPid ? '<span class="player-chip-start" title="Zaczynał pokolenie">◆</span>' : ''}
                     ${statusText ? `<span class="player-chip-status">${statusText}</span>` : ''}
                 </div>`;
             }).join('');
@@ -2287,6 +2338,11 @@
             const currentPlayerId = playerOrder[state.gameState.currentPlayerIndex];
             
             if (currentPlayerId !== state.playerId && !state.isHost) return;
+            
+            if (el.passBtn) {
+                el.passBtn.classList.add('pass-success');
+                setTimeout(() => el.passBtn && el.passBtn.classList.remove('pass-success'), 400);
+            }
             
             // Find next active player
             let nextIndex = state.gameState.currentPlayerIndex;
@@ -2727,7 +2783,13 @@
                 if (pf) pf.style.width = '0%';
             } catch (_) {}
             state.holdProgress = 0;
-            if (confirmed) try { passGen(); } catch (e) { showRecoveryOverlay(); }
+            if (confirmed) {
+                if (el.passGenBtn) {
+                    el.passGenBtn.classList.add('passgen-success');
+                    setTimeout(() => { if (el.passGenBtn) el.passGenBtn.classList.remove('passgen-success'); }, 300);
+                }
+                try { passGen(); } catch (e) { showRecoveryOverlay(); }
+            }
         }
         
         // =============================================
@@ -3007,10 +3069,16 @@
         el.adminTimeBtn.addEventListener('click', toggleAdminTime);
         
         el.resumeBtn.addEventListener('click', () => {
-            if (state.gameState?.overlayButton?.includes('Pokolenie')) {
-                nextGeneration();
+            if (el.adminOverlay) {
+                el.adminOverlay.classList.add('overlay-closing');
+                setTimeout(() => {
+                    if (el.adminOverlay) el.adminOverlay.classList.remove('overlay-closing');
+                    if (state.gameState?.overlayButton?.includes('Pokolenie')) nextGeneration();
+                    else toggleAdminTime();
+                }, 150);
             } else {
-                toggleAdminTime();
+                if (state.gameState?.overlayButton?.includes('Pokolenie')) nextGeneration();
+                else toggleAdminTime();
             }
         });
         
@@ -3022,8 +3090,13 @@
         el.endGameBtn.addEventListener('touchcancel', () => endEndGameHold(false));
         
         el.statsCloseBtn.addEventListener('click', () => {
-            el.statsOverlay.classList.remove('active');
-            leaveRoom();
+            if (el.statsOverlay) {
+                el.statsOverlay.classList.add('overlay-closing');
+                setTimeout(() => {
+                    if (el.statsOverlay) el.statsOverlay.classList.remove('overlay-closing', 'active');
+                    leaveRoom();
+                }, 150);
+            } else leaveRoom();
         });
         
         el.menuBtn.addEventListener('click', () => {
