@@ -177,16 +177,20 @@
                 <div class="prep-mars-wrap" id="prepMarsWrap">
                     <div class="prep-mars-globe" aria-hidden="true"><img src="https://upload.wikimedia.org/wikipedia/commons/0/02/OSIRIS_Mars_true_color.jpg" alt=""></div>
                     <div class="prep-mars-map" id="prepMarsMap" aria-hidden="true">
-                        <svg viewBox="0 0 200 200" class="prep-mars-svg">
-                            <defs><filter id="prepMarsGlow"><feGaussianBlur stdDeviation="2" result="blur"/><feFlood flood-color="currentColor" flood-opacity="0.4"/><feComposite in2="blur" operator="in"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
-                            <!-- 7 klinów – półprzezroczyste kolory na Marsie -->
-                            <path class="prep-mars-region" data-board-id="tharsis" d="M100 100 L100 8 A92 92 0 0 1 171.8 61.4 Z" fill="rgba(230,57,70,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-                            <path class="prep-mars-region" data-board-id="hellas" d="M100 100 L171.8 61.4 A92 92 0 0 1 189.2 120.2 Z" fill="rgba(72,202,228,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-                            <path class="prep-mars-region" data-board-id="elysium" d="M100 100 L189.2 120.2 A92 92 0 0 1 139.6 182.8 Z" fill="rgba(82,183,136,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-                            <path class="prep-mars-region" data-board-id="vastitas" d="M100 100 L139.6 182.8 A92 92 0 0 1 62.3 183.7 Z" fill="rgba(29,53,87,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-                            <path class="prep-mars-region" data-board-id="utopia" d="M100 100 L62.3 183.7 A92 92 0 0 1 10.8 120.2 Z" fill="rgba(231,111,81,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-                            <path class="prep-mars-region" data-board-id="terra" d="M100 100 L10.8 120.2 A92 92 0 0 1 28.2 61.4 Z" fill="rgba(123,44,191,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-                            <path class="prep-mars-region" data-board-id="arabia" d="M100 100 L28.2 61.4 A92 92 0 0 1 100 8 Z" fill="rgba(233,196,106,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                        <svg viewBox="0 0 200 200" class="prep-mars-svg" preserveAspectRatio="xMidYMid slice">
+                            <defs>
+                                <filter id="prepMarsGlow"><feGaussianBlur stdDeviation="2" result="blur"/><feFlood flood-color="currentColor" flood-opacity="0.4"/><feComposite in2="blur" operator="in"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+                                <clipPath id="prepMarsClip"><circle cx="100" cy="100" r="100"/></clipPath>
+                            </defs>
+                            <g clip-path="url(#prepMarsClip)" transform="translate(100,100) scale(1.087) translate(-100,-100)">
+                                <path class="prep-mars-region" data-board-id="tharsis" d="M100 100 L100 8 A92 92 0 0 1 171.8 61.4 Z" fill="rgba(230,57,70,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                                <path class="prep-mars-region" data-board-id="hellas" d="M100 100 L171.8 61.4 A92 92 0 0 1 189.2 120.2 Z" fill="rgba(72,202,228,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                                <path class="prep-mars-region" data-board-id="elysium" d="M100 100 L189.2 120.2 A92 92 0 0 1 139.6 182.8 Z" fill="rgba(82,183,136,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                                <path class="prep-mars-region" data-board-id="vastitas" d="M100 100 L139.6 182.8 A92 92 0 0 1 62.3 183.7 Z" fill="rgba(29,53,87,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                                <path class="prep-mars-region" data-board-id="utopia" d="M100 100 L62.3 183.7 A92 92 0 0 1 10.8 120.2 Z" fill="rgba(231,111,81,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                                <path class="prep-mars-region" data-board-id="terra" d="M100 100 L10.8 120.2 A92 92 0 0 1 28.2 61.4 Z" fill="rgba(123,44,191,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                                <path class="prep-mars-region" data-board-id="arabia" d="M100 100 L28.2 61.4 A92 92 0 0 1 100 8 Z" fill="rgba(233,196,106,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+                            </g>
                         </svg>
                         <div class="prep-mars-center" id="prepMarsCenter"></div>
                     </div>
@@ -202,9 +206,16 @@
                 </div>
             </div>
             <div class="prep-phase prep-phase-draft" id="prepPhaseDraft" style="display:none;">
-                <h2 class="prep-title">Kolejność draftu – pokolenie 1</h2>
+                <h2 class="prep-title" id="prepDraftTitle">Plan operacyjny misji</h2>
                 <div class="prep-draft-circle-wrap" id="prepDraftCircleWrap"></div>
-                <p class="prep-draft-direction">zgodnie ze wskazówkami zegara</p>
+                <div class="prep-card-choice-wrap" id="prepCardChoiceWrap">
+                    <div class="prep-card-choice-animation" aria-hidden="true">
+                        <span class="prep-card-choice-icon">🃏</span>
+                        <span class="prep-card-choice-icon">📋</span>
+                        <span class="prep-card-choice-icon">🏢</span>
+                    </div>
+                </div>
+                <p class="prep-draft-direction" id="prepDraftDirection">Wybierz karty</p>
                 <div class="prep-actions">
                     <button type="button" class="prep-btn primary" id="prepStartFirstGenBtn">Rozpocznij pierwsze pokolenie</button>
                 </div>
@@ -958,6 +969,9 @@
             prepDrawBoardBtn: $('prepDrawBoardBtn'),
             prepToDraftBtn: $('prepToDraftBtn'),
             prepDraftCircleWrap: $('prepDraftCircleWrap'),
+            prepDraftTitle: $('prepDraftTitle'),
+            prepDraftDirection: $('prepDraftDirection'),
+            prepCardChoiceWrap: $('prepCardChoiceWrap'),
             prepStartFirstGenBtn: $('prepStartFirstGenBtn'),
             prepBackBtn: $('prepBackBtn'),
             timerArea: $('timerArea'),
@@ -1976,7 +1990,7 @@
                 if (el.adminOverlayDraftOrder) {
                     if (isEndOfGen && playerOrder.length > 0) {
                         const gen = data.generation || 1;
-                        const counterClockwise = gen % 2 === 1;
+                        const counterClockwise = gen % 2 === 0;
                         const draftOrder = counterClockwise ? [...playerOrder].reverse() : [...playerOrder];
                         const directionLabel = counterClockwise ? 'odwrotnie do wskazówek zegara' : 'zgodnie ze wskazówkami zegara';
                         const n = draftOrder.length;
@@ -2114,7 +2128,7 @@
                                 ` : ''}
                             </div>`;
                     }).join('');
-                    if (el.prepBoardDrawBtn) el.prepBoardDrawBtn.style.display = 'block';
+                    if (state.isHost && el.prepBoardDrawBtn) el.prepBoardDrawBtn.style.display = 'block';
                 }
             } else if (phase === 'board') {
                 const boardId = data.boardId || (data.boardNumber != null ? (BOARDS[Math.max(0, data.boardNumber - 1)]?.id) : null);
@@ -2129,28 +2143,13 @@
                 if (el.prepMarsMap) el.prepMarsMap.querySelectorAll('.prep-mars-region').forEach(r => { r.classList.remove('prep-mars-region-active', 'prep-mars-region-dimmed', 'prep-mars-region-highlight'); });
                 if (el.prepReplayBoardBtn) el.prepReplayBoardBtn.style.display = (state.isHost && boardId) ? 'inline-block' : 'none';
                 if (el.prepDrawBoardBtn) el.prepDrawBoardBtn.style.display = (state.isHost && boardId == null) ? 'block' : 'none';
-                if (el.prepToDraftBtn) el.prepToDraftBtn.style.display = boardId != null ? 'block' : 'none';
+                if (el.prepToDraftBtn) el.prepToDraftBtn.style.display = (boardId != null && state.isHost) ? 'block' : 'none';
             } else if (phase === 'draft') {
-                if (el.prepDraftCircleWrap) {
-                    if (playerOrder.length > 0) {
-                        const n = playerOrder.length;
-                        const itemsHtml = playerOrder.map((pid, i) => {
-                            const p = players[pid];
-                            const angleDeg = -90 + (360 / n) * i;
-                            return `<div class="admin-draft-item" style="--angle: ${angleDeg}deg"><span class="admin-draft-num">${i + 1}</span><span class="admin-draft-dot" style="background:${COLOR_HEX[p?.color] || '#6b7280'}"></span><span class="admin-draft-name">${p?.name || '—'}</span></div>`;
-                        }).join('');
-                        el.prepDraftCircleWrap.innerHTML = `
-                        <div class="admin-draft-circle" style="margin:0 auto;">
-                            <svg class="admin-draft-arrow" viewBox="0 0 200 200" aria-hidden="true">
-                                <defs><marker id="prepDraftArrowHead" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 Z" fill="var(--accent-cyan)"/></marker></defs>
-                                <path class="admin-draft-arrow-path" d="M 100 18 A 82 82 0 0 1 100 182" fill="none" stroke="var(--accent-cyan)" stroke-width="3" stroke-dasharray="6 5" marker-end="url(#prepDraftArrowHead)"/>
-                            </svg>
-                            ${itemsHtml}
-                        </div>`;
-                    } else {
-                        el.prepDraftCircleWrap.innerHTML = '';
-                    }
-                }
+                if (el.prepDraftTitle) el.prepDraftTitle.textContent = 'Plan operacyjny misji';
+                if (el.prepDraftDirection) el.prepDraftDirection.textContent = 'Wybierz karty';
+                if (el.prepDraftCircleWrap) el.prepDraftCircleWrap.style.display = 'none';
+                if (el.prepCardChoiceWrap) el.prepCardChoiceWrap.style.display = 'block';
+                if (el.prepStartFirstGenBtn) el.prepStartFirstGenBtn.style.display = state.isHost ? 'block' : 'none';
             }
         }
         
@@ -2264,8 +2263,8 @@
                             if (el.prepBoardResultWrap) el.prepBoardResultWrap.style.display = 'block';
                             if (el.prepBoardResultName) { el.prepBoardResultName.textContent = board.name; el.prepBoardResultName.style.color = board.color; }
                             if (el.prepBoardResultTrait) el.prepBoardResultTrait.textContent = board.shortTrait;
-                            if (el.prepReplayBoardBtn) el.prepReplayBoardBtn.style.display = 'inline-block';
-                            if (el.prepToDraftBtn) el.prepToDraftBtn.style.display = 'block';
+                            if (el.prepReplayBoardBtn) el.prepReplayBoardBtn.style.display = state.isHost ? 'inline-block' : 'none';
+                            if (el.prepToDraftBtn) el.prepToDraftBtn.style.display = state.isHost ? 'block' : 'none';
                             update(ref(db, `rooms/${roomId}`), { boardId: board.id }).catch((err) => {
                                 console.error('[prep] runBoardDraw update failed', err);
                                 alert('Nie udało się zapisać planszy. Sprawdź połączenie.');
@@ -2291,8 +2290,8 @@
                     if (el.prepBoardResultWrap) el.prepBoardResultWrap.style.display = 'block';
                     if (el.prepBoardResultName) { el.prepBoardResultName.textContent = board.name; el.prepBoardResultName.style.color = board.color; }
                     if (el.prepBoardResultTrait) el.prepBoardResultTrait.textContent = board.shortTrait;
-                    if (el.prepReplayBoardBtn) el.prepReplayBoardBtn.style.display = 'inline-block';
-                    if (el.prepToDraftBtn) el.prepToDraftBtn.style.display = 'block';
+                    if (el.prepReplayBoardBtn) el.prepReplayBoardBtn.style.display = state.isHost ? 'inline-block' : 'none';
+                    if (el.prepToDraftBtn) el.prepToDraftBtn.style.display = state.isHost ? 'block' : 'none';
                     update(ref(db, `rooms/${roomId}`), { boardId: board.id }).catch(() => {});
                     hostSpeak(`Plansza ${board.name}`);
                 }, 800);
