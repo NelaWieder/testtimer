@@ -594,7 +594,7 @@ body {
 }
 .current-player-replay-btn:hover { background: rgba(0, 212, 255, 0.35); }
 .current-player-label { font-family: var(--font-body); font-size: 0.65rem; color: var(--text-muted); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 20px; }
-.timer-display { position: relative; width: min(260px, 70vw); height: min(260px, 70vw); display: flex; align-items: center; justify-content: center; }
+.timer-display { position: relative; width: min(300px, 78vw); height: min(300px, 78vw); display: flex; align-items: center; justify-content: center; overflow: visible; }
 .mars-planet {
     position: absolute;
     width: 78%;
@@ -655,8 +655,15 @@ body {
     .mars-planet { animation: none; }
 }
 .timer-overlay { position: absolute; width: 78%; height: 78%; border-radius: 50%; background: radial-gradient(circle, rgba(10,1,24,0.25) 0%, rgba(10,1,24,0.45) 100%); }
-.timer-ring { position: absolute; inset: 0; }
+.timer-ring { position: absolute; inset: 0; transform-origin: 50% 50%; }
 .timer-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.timer-area.my-turn .timer-ring { animation: timerRingPulse 1.5s ease-in-out infinite; }
+@keyframes timerRingPulse {
+    0%, 100% { transform: scale(0.97); }
+    50% { transform: scale(1.03); }
+}
+.timer-area.timer-urgent .timer-ring { animation-duration: 0.8s; }
+.timer-area.timer-critical .timer-ring { animation-duration: 0.5s; }
 .timer-ring-bg { fill: none; stroke: rgba(255, 255, 255, 0.08); stroke-width: 12; }
 .timer-ring-aura { fill: none; stroke-width: 14; stroke-linecap: round; opacity: 0.35; stroke: var(--primary); }
 .timer-ring-progress { fill: none; stroke: url(#timerGradient); stroke-width: 12; stroke-linecap: round; stroke-dasharray: 816.81; stroke-dashoffset: 816.81; transition: stroke-dashoffset 0.4s ease-out; filter: drop-shadow(0 0 10px var(--glow-purple)); }
@@ -669,9 +676,10 @@ body {
 }
 .timer-area.my-turn .timer-ring-aura { transform-origin: 50% 50%; animation: timerAuraPulse 1.5s ease-in-out infinite; }
 @keyframes timerAuraPulse {
-    0%, 100% { opacity: 0.35; stroke-width: 10; transform: scale(0.97); filter: drop-shadow(0 0 6px var(--turn-glow, transparent)); }
-    50% { opacity: 0.82; stroke-width: 20; transform: scale(1.03); filter: drop-shadow(0 0 35px var(--turn-glow, transparent)) drop-shadow(0 0 65px var(--turn-glow, transparent)) drop-shadow(0 0 100px var(--turn-glow, transparent)); }
+    0%, 100% { opacity: 0.35; stroke-width: 10; filter: drop-shadow(0 0 6px var(--turn-glow, transparent)); }
+    50% { opacity: 0.82; stroke-width: 20; filter: drop-shadow(0 0 35px var(--turn-glow, transparent)) drop-shadow(0 0 65px var(--turn-glow, transparent)) drop-shadow(0 0 100px var(--turn-glow, transparent)); }
 }
+.timer-area.timer-area--overtime { --turn-glow: var(--danger); }
 .timer-area.timer-urgent .timer-ring-aura { animation-duration: 0.8s; }
 .timer-area.timer-critical .timer-ring-aura { animation-duration: 0.5s; }
 .timer-area.warning-pop .timer-display { animation: warningPop 0.4s ease-out; }
@@ -688,7 +696,8 @@ body {
 @keyframes pulse-warning { 0%, 100% { opacity: 1; } 50% { opacity: 0.85; } }
 @media (prefers-reduced-motion: reduce) {
     .timer-area.my-turn .timer-display { animation: none; }
-    .timer-area.my-turn .timer-ring-aura { animation: none; opacity: 0.6; stroke-width: 14; transform: none; filter: drop-shadow(0 0 20px var(--turn-glow, transparent)); }
+    .timer-area.my-turn .timer-ring { animation: none; transform: none; }
+    .timer-area.my-turn .timer-ring-aura { animation: none; opacity: 0.6; stroke-width: 14; filter: drop-shadow(0 0 20px var(--turn-glow, transparent)); }
     .timer-area .timer-display.timer-shake { animation: none; }
     .timer-area.warning-pop .timer-display { animation: none; }
 }
@@ -1297,7 +1306,7 @@ body {
 /* iPhone landscape and small height */
 @media (max-height: 500px) and (orientation: landscape) {
     .timer-area { padding: 8px; }
-    .timer-display { width: min(180px, 40vh); height: min(180px, 40vh); }
+    .timer-display { width: min(200px, 44vh); height: min(200px, 44vh); }
     .current-player-name { font-size: 1.2rem; margin-bottom: 0; }
     .current-player-label { margin-bottom: 8px; }
     .action-area { padding: 8px 16px; }
