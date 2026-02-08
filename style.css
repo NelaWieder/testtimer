@@ -669,8 +669,8 @@ body {
 }
 .timer-area.my-turn .timer-ring-aura { animation: timerAuraPulse 1.5s ease-in-out infinite; }
 @keyframes timerAuraPulse {
-    0%, 100% { opacity: 0.4; filter: drop-shadow(0 0 14px var(--turn-glow, transparent)); }
-    50% { opacity: 1; filter: drop-shadow(0 0 38px var(--turn-glow, transparent)) drop-shadow(0 0 70px var(--turn-glow, transparent)); }
+    0%, 100% { opacity: 0.25; filter: drop-shadow(0 0 8px var(--turn-glow, transparent)); }
+    50% { opacity: 1; filter: drop-shadow(0 0 45px var(--turn-glow, transparent)) drop-shadow(0 0 85px var(--turn-glow, transparent)) drop-shadow(0 0 120px var(--turn-glow, transparent)); }
 }
 .timer-area.warning-pop .timer-display { animation: warningPop 0.4s ease-out; }
 @keyframes warningPop { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
