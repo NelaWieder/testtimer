@@ -1074,25 +1074,30 @@
         // Wszystkie dźwięki gry – WYŁĄCZNIE na urządzeniu hosta. Nigdy nie rzucają – błędy są łapane.
         function playBeep(freq = 800, dur = 150, type = 'sine', volume = 0.3) {
             if (!state || !state.isHost || state.isMuted) return;
-            try {
-                if (!state.audioContext) return;
-                const ctx = state.audioContext;
-                if (ctx.state === 'suspended') {
-                    ctx.resume().catch(() => {});
+            if (!state.audioContext) return;
+            const ctx = state.audioContext;
+            if (ctx.state === 'closed') return;
+            function doPlay() {
+                try {
+                    if (ctx.state === 'closed') return;
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.frequency.value = freq;
+                    osc.type = type;
+                    gain.gain.setValueAtTime(volume, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + dur / 1000);
+                    osc.start(ctx.currentTime);
+                    osc.stop(ctx.currentTime + dur / 1000);
+                } catch (e) {
+                    console.warn('[AUDIO] Beep error:', e);
                 }
-                if (ctx.state === 'closed') return;
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.frequency.value = freq;
-                osc.type = type;
-                gain.gain.setValueAtTime(volume, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + dur / 1000);
-                osc.start(ctx.currentTime);
-                osc.stop(ctx.currentTime + dur / 1000);
-            } catch (e) {
-                console.warn('[AUDIO] Beep error:', e);
+            }
+            if (ctx.state === 'suspended') {
+                ctx.resume().then(() => doPlay()).catch(() => {});
+            } else {
+                doPlay();
             }
         }
         
@@ -1850,7 +1855,7 @@
                     const remaining = state.gameState.turnDuration - elapsed;
                     updateTimerDisplay(remaining);
                     if (state.isHost && !state.isMuted) {
-                        if (remaining <= 5.1 && remaining > 4.5 && !state.warningPlayed) {
+                        if (remaining <= 5.5 && remaining > 4 && !state.warningPlayed) {
                             playWarning();
                             state.warningPlayed = true;
                         }
