@@ -667,10 +667,10 @@ body {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.02); }
 }
-.timer-area.my-turn .timer-ring-aura { animation: timerAuraPulse 1.8s ease-in-out infinite; }
+.timer-area.my-turn .timer-ring-aura { animation: timerAuraPulse 1.5s ease-in-out infinite; }
 @keyframes timerAuraPulse {
-    0%, 100% { opacity: 0.5; filter: drop-shadow(0 0 10px var(--turn-glow, transparent)); }
-    50% { opacity: 0.95; filter: drop-shadow(0 0 28px var(--turn-glow, transparent)) drop-shadow(0 0 50px var(--turn-glow, transparent)); }
+    0%, 100% { opacity: 0.4; filter: drop-shadow(0 0 14px var(--turn-glow, transparent)); }
+    50% { opacity: 1; filter: drop-shadow(0 0 38px var(--turn-glow, transparent)) drop-shadow(0 0 70px var(--turn-glow, transparent)); }
 }
 .timer-area.warning-pop .timer-display { animation: warningPop 0.4s ease-out; }
 @keyframes warningPop { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
