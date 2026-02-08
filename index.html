@@ -1926,8 +1926,8 @@
                 state.turnGlowColor = isMyTurn ? (COLOR_HEX[currentPlayer.color] || 'var(--primary)') : null;
                 if (el.timerArea) {
                     el.timerArea.classList.toggle('my-turn', isMyTurn);
-                    if (isMyTurn) el.timerArea.style.setProperty('--turn-glow', state.turnGlowColor);
-                    else el.timerArea.style.removeProperty('--turn-glow');
+                    if (!isMyTurn) el.timerArea.style.removeProperty('--turn-glow');
+                    /* --turn-glow ustawia tylko updateTimerDisplay (co 50 ms), żeby remaining <= 15 zawsze dawał czerwony */
                 }
                 el.currentPlayerLabel.textContent = isMyTurn ? 'Twoja tura!' : 'Tura gracza';
                 
