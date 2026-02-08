@@ -383,6 +383,7 @@
             gameStartAnnounced: false,
             prevCurrentPlayerId: null,
             warningPopPlayed: false,
+            shakeAt5Played: false,
             prevWaitingPlayerIds: [],
             startBtnWasDisabled: true
         };
@@ -1881,11 +1882,21 @@
             if (el.timerProgress) el.timerProgress.classList.toggle('overtime', remaining < 0);
             if (el.timerArea) {
                 el.timerArea.classList.toggle('timer-urgent', remaining <= 15 && remaining > 0);
+                el.timerArea.classList.toggle('timer-critical', remaining <= 5 && remaining > 0);
+                if (remaining > 5) state.shakeAt5Played = false;
                 if (remaining <= 5 && remaining > 0 && !state.warningPopPlayed) {
                     state.warningPopPlayed = true;
                     el.timerArea.classList.add('warning-pop');
                     setTimeout(() => { if (el.timerArea) el.timerArea.classList.remove('warning-pop'); }, 400);
                 } else if (remaining > 5) state.warningPopPlayed = false;
+                if (remaining <= 5 && remaining > 4.5 && !state.shakeAt5Played) {
+                    state.shakeAt5Played = true;
+                    const timerDisplay = el.timerArea.querySelector('.timer-display');
+                    if (timerDisplay) {
+                        timerDisplay.classList.add('timer-shake');
+                        setTimeout(() => { timerDisplay.classList.remove('timer-shake'); }, 400);
+                    }
+                }
             }
         }
         

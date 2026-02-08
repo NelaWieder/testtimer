@@ -667,21 +667,29 @@ body {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.02); }
 }
-.timer-area.my-turn .timer-ring-aura { animation: timerAuraPulse 1.5s ease-in-out infinite; }
+.timer-area.my-turn .timer-ring-aura { transform-origin: 50% 50%; animation: timerAuraPulse 1.5s ease-in-out infinite; }
 @keyframes timerAuraPulse {
-    0%, 100% { opacity: 0.25; filter: drop-shadow(0 0 8px var(--turn-glow, transparent)); }
-    50% { opacity: 1; filter: drop-shadow(0 0 45px var(--turn-glow, transparent)) drop-shadow(0 0 85px var(--turn-glow, transparent)) drop-shadow(0 0 120px var(--turn-glow, transparent)); }
+    0%, 100% { opacity: 0.35; stroke-width: 10; transform: scale(0.97); filter: drop-shadow(0 0 6px var(--turn-glow, transparent)); }
+    50% { opacity: 0.82; stroke-width: 20; transform: scale(1.03); filter: drop-shadow(0 0 35px var(--turn-glow, transparent)) drop-shadow(0 0 65px var(--turn-glow, transparent)) drop-shadow(0 0 100px var(--turn-glow, transparent)); }
 }
+.timer-area.timer-urgent .timer-ring-aura { animation-duration: 0.8s; }
+.timer-area.timer-critical .timer-ring-aura { animation-duration: 0.5s; }
 .timer-area.warning-pop .timer-display { animation: warningPop 0.4s ease-out; }
+.timer-area.timer-critical.warning-pop .timer-display { animation: warningPopStrong 0.4s ease-out; }
 @keyframes warningPop { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+@keyframes warningPopStrong { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
+.timer-area .timer-display.timer-shake { animation: timerShake 0.4s ease-out; }
+@keyframes timerShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
 .timer-text { font-family: var(--font-display); font-size: clamp(2.8rem, 15vw, 4.2rem); font-weight: 700; color: #ffffff; text-shadow: 0 0 10px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.7), 0 0 40px var(--glow-purple); position: relative; z-index: 10; }
 .timer-text.overtime { color: var(--danger); animation: overtimePulse 1s ease-in-out infinite; }
 @keyframes overtimePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
 .timer-text.warning { animation: pulse-warning 0.5s ease infinite; color: var(--warning); text-shadow: 0 0 12px rgba(251, 191, 36, 0.8), 0 0 24px rgba(251, 191, 36, 0.4); }
+.timer-area.timer-critical .timer-text.warning { animation-duration: 0.3s; }
 @keyframes pulse-warning { 0%, 100% { opacity: 1; } 50% { opacity: 0.85; } }
 @media (prefers-reduced-motion: reduce) {
     .timer-area.my-turn .timer-display { animation: none; }
-    .timer-area.my-turn .timer-ring-aura { animation: none; opacity: 0.75; filter: drop-shadow(0 0 20px var(--turn-glow, transparent)); }
+    .timer-area.my-turn .timer-ring-aura { animation: none; opacity: 0.6; stroke-width: 14; transform: none; filter: drop-shadow(0 0 20px var(--turn-glow, transparent)); }
+    .timer-area .timer-display.timer-shake { animation: none; }
     .timer-area.warning-pop .timer-display { animation: none; }
 }
 
