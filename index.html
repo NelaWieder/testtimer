@@ -384,6 +384,7 @@
             prevCurrentPlayerId: null,
             warningPopPlayed: false,
             shakeAt5Played: false,
+            turnGlowColor: null,
             prevWaitingPlayerIds: [],
             startBtnWasDisabled: true
         };
@@ -1884,6 +1885,8 @@
                 el.timerArea.classList.toggle('timer-urgent', remaining <= 15 && remaining > 0);
                 el.timerArea.classList.toggle('timer-critical', remaining <= 5);
                 el.timerArea.classList.toggle('timer-area--overtime', remaining < 0);
+                if (remaining <= 15) el.timerArea.style.setProperty('--turn-glow', '#f43f5e');
+                else if (state.turnGlowColor) el.timerArea.style.setProperty('--turn-glow', state.turnGlowColor);
                 if (remaining > 5) state.shakeAt5Played = false;
                 if (remaining <= 5 && remaining > 0 && !state.warningPopPlayed) {
                     state.warningPopPlayed = true;
@@ -1920,9 +1923,10 @@
                 if (el.currentPlayerReplayBtn) el.currentPlayerReplayBtn.style.display = state.isHost ? 'inline-flex' : 'none';
                 
                 const isMyTurn = currentPlayerId === state.playerId;
+                state.turnGlowColor = isMyTurn ? (COLOR_HEX[currentPlayer.color] || 'var(--primary)') : null;
                 if (el.timerArea) {
                     el.timerArea.classList.toggle('my-turn', isMyTurn);
-                    if (isMyTurn) el.timerArea.style.setProperty('--turn-glow', COLOR_HEX[currentPlayer.color] || 'var(--primary)');
+                    if (isMyTurn) el.timerArea.style.setProperty('--turn-glow', state.turnGlowColor);
                     else el.timerArea.style.removeProperty('--turn-glow');
                 }
                 el.currentPlayerLabel.textContent = isMyTurn ? 'Twoja tura!' : 'Tura gracza';
