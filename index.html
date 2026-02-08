@@ -325,8 +325,7 @@
             { id: 'elysium', name: 'Elysium', color: '#52b788', shortTrait: 'Oceany na północy, Olympus Mons' },
             { id: 'vastitas', name: 'Vastitas Borealis', color: '#1d3557', shortTrait: 'Lodowa północ' },
             { id: 'utopia', name: 'Utopia Planitia', color: '#e76f51', shortTrait: 'Tytan, stal – północ' },
-            { id: 'terra', name: 'Terra Cimmeria', color: '#7b2cbf', shortTrait: 'Wyżyny, kratery' },
-            { id: 'arabia', name: 'Arabia Terra', color: '#e9c46a', shortTrait: 'Wyżyny, darmowe karty' }
+            { id: 'terra', name: 'Terra Cimmeria', color: '#7b2cbf', shortTrait: 'Wyżyny, kratery' }
         ];
         function getBoardById(id) { return BOARDS.find(b => b.id === id) || null; }
         function getBoardByNumber(n) { return BOARDS[Math.max(0, (n || 1) - 1)] || BOARDS[0]; }
@@ -1909,7 +1908,11 @@
                 if (el.currentPlayerReplayBtn) el.currentPlayerReplayBtn.style.display = state.isHost ? 'inline-flex' : 'none';
                 
                 const isMyTurn = currentPlayerId === state.playerId;
-                if (el.timerArea) el.timerArea.classList.toggle('my-turn', isMyTurn);
+                if (el.timerArea) {
+                    el.timerArea.classList.toggle('my-turn', isMyTurn);
+                    if (isMyTurn) el.timerArea.style.setProperty('--turn-glow', COLOR_HEX[currentPlayer.color] || 'var(--primary)');
+                    else el.timerArea.style.removeProperty('--turn-glow');
+                }
                 el.currentPlayerLabel.textContent = isMyTurn ? 'Twoja tura!' : 'Tura gracza';
                 
                 // Host może zawsze spasować za aktywnego gracza (przycisk "Pass {Imię}"); inaczej tylko w swojej turze
@@ -1937,7 +1940,7 @@
                 el.passBtn.style.boxShadow = `0 8px 32px ${COLOR_HEX[currentPlayer.color]}66`;
             } else {
                 state.prevCurrentPlayerId = null;
-                if (el.timerArea) el.timerArea.classList.remove('my-turn');
+                if (el.timerArea) { el.timerArea.classList.remove('my-turn'); el.timerArea.style.removeProperty('--turn-glow'); }
                 if (el.currentPlayerReplayBtn) el.currentPlayerReplayBtn.style.display = 'none';
                 const auraEl = document.getElementById('timerRingAura');
                 if (auraEl) auraEl.style.stroke = 'rgba(255,255,255,0.08)';
