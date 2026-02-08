@@ -676,9 +676,10 @@ body {
 }
 .timer-area.my-turn .timer-ring-aura { transform-origin: 50% 50%; animation: timerAuraPulse 1.5s ease-in-out infinite; }
 @keyframes timerAuraPulse {
-    0%, 100% { opacity: 0.35; stroke-width: 10; filter: drop-shadow(0 0 6px var(--turn-glow, transparent)); }
-    50% { opacity: 0.82; stroke-width: 20; filter: drop-shadow(0 0 35px var(--turn-glow, transparent)) drop-shadow(0 0 65px var(--turn-glow, transparent)) drop-shadow(0 0 100px var(--turn-glow, transparent)); }
+    0%, 100% { opacity: 0.22; stroke-width: 10; filter: drop-shadow(0 0 6px var(--turn-glow, transparent)); }
+    50% { opacity: 0.52; stroke-width: 20; filter: drop-shadow(0 0 35px var(--turn-glow, transparent)) drop-shadow(0 0 65px var(--turn-glow, transparent)) drop-shadow(0 0 100px var(--turn-glow, transparent)); }
 }
+.timer-area.timer-urgent { --turn-glow: var(--danger); }
 .timer-area.timer-area--overtime { --turn-glow: var(--danger); }
 .timer-area.timer-urgent .timer-ring-aura { animation-duration: 0.8s; }
 .timer-area.timer-critical .timer-ring-aura { animation-duration: 0.5s; }
@@ -697,7 +698,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
     .timer-area.my-turn .timer-display { animation: none; }
     .timer-area.my-turn .timer-ring { animation: none; transform: none; }
-    .timer-area.my-turn .timer-ring-aura { animation: none; opacity: 0.6; stroke-width: 14; filter: drop-shadow(0 0 20px var(--turn-glow, transparent)); }
+    .timer-area.my-turn .timer-ring-aura { animation: none; opacity: 0.4; stroke-width: 14; filter: drop-shadow(0 0 20px var(--turn-glow, transparent)); }
     .timer-area .timer-display.timer-shake { animation: none; }
     .timer-area.warning-pop .timer-display { animation: none; }
 }
