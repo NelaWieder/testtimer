@@ -655,25 +655,15 @@ body {
     .mars-planet { animation: none; }
 }
 .timer-overlay { position: absolute; width: 78%; height: 78%; border-radius: 50%; background: radial-gradient(circle, rgba(10,1,24,0.25) 0%, rgba(10,1,24,0.45) 100%); }
-.timer-ring { position: absolute; inset: 0; transform-origin: 50% 50%; }
+/* UWAGA: NIE dodawać scale/transform na .timer-ring ani .timer-display – na Android Chrome powoduje pulsowanie całego kwadratu zamiast okręgu. */
+.timer-ring { position: absolute; inset: 0; }
 .timer-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-.timer-area.my-turn .timer-ring { animation: timerRingPulse 1.5s ease-in-out infinite; }
-@keyframes timerRingPulse {
-    0%, 100% { transform: scale(0.97); }
-    50% { transform: scale(1.03); }
-}
-.timer-area.timer-urgent .timer-ring { animation-duration: 0.8s; }
-.timer-area.timer-critical .timer-ring { animation-duration: 0.5s; }
 .timer-ring-bg { fill: none; stroke: rgba(255, 255, 255, 0.08); stroke-width: 12; }
 .timer-ring-aura { fill: none; stroke-width: 14; stroke-linecap: round; opacity: 0.35; stroke: var(--primary); }
 .timer-ring-progress { fill: none; stroke: url(#timerGradient); stroke-width: 12; stroke-linecap: round; stroke-dasharray: 816.81; stroke-dashoffset: 816.81; transition: stroke-dashoffset 0.4s ease-out; filter: drop-shadow(0 0 10px var(--glow-purple)); }
 .timer-ring-progress.overtime { stroke: var(--danger); filter: drop-shadow(0 0 15px rgba(244, 63, 94, 0.9)); }
 .timer-area.timer-urgent .timer-ring-progress:not(.overtime) { stroke: var(--accent-pink); filter: drop-shadow(0 0 12px var(--glow-pink)); }
-.timer-area.my-turn .timer-display { animation: timerBreath 2.2s ease-in-out infinite; }
-@keyframes timerBreath {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.02); }
-}
+/* .timer-display – bez animacji scale (powoduje pulsowanie kwadratu na Android); puls tylko na .timer-ring-aura */
 .timer-area.my-turn .timer-ring-aura { transform-origin: 50% 50%; animation: timerAuraPulse 1.5s ease-in-out infinite; }
 @keyframes timerAuraPulse {
     0%, 100% { opacity: 0.22; stroke-width: 10; filter: drop-shadow(0 0 6px var(--turn-glow, transparent)); }
@@ -697,7 +687,6 @@ body {
 @keyframes pulse-warning { 0%, 100% { opacity: 1; } 50% { opacity: 0.85; } }
 @media (prefers-reduced-motion: reduce) {
     .timer-area.my-turn .timer-display { animation: none; }
-    .timer-area.my-turn .timer-ring { animation: none; transform: none; }
     .timer-area.my-turn .timer-ring-aura { animation: none; opacity: 0.4; stroke-width: 14; filter: drop-shadow(0 0 20px var(--turn-glow, transparent)); }
     .timer-area .timer-display.timer-shake { animation: none; }
     .timer-area.warning-pop .timer-display { animation: none; }
