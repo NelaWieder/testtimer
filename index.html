@@ -54,7 +54,7 @@
             <input type="text" class="join-input" id="joinCodeInput" placeholder="KOD" maxlength="4" autocomplete="off">
             <button class="lobby-btn primary" id="joinRoomBtn">Dołącz</button>
         </div>
-        <div class="lobby-version">v1.17</div>
+        <div class="lobby-version">v2.0</div>
     </div>
     
     <!-- NAME MODAL -->
@@ -401,6 +401,7 @@
             shakeAt5Played: false,
             turnGlowColor: null,
             overtime2xPlayed: false,
+            graszSamAnnouncedForGeneration: null,
             prevWaitingPlayerIds: [],
             startBtnWasDisabled: true
         };
@@ -1120,9 +1121,9 @@ if (platform === 'android') {
         function playTurnStart() {
             if (!state || !state.isHost) return;
             try {
-                playBeep(392, 120, 'triangle', 0.35);
-                setTimeout(() => playBeep(523, 100, 'triangle', 0.3), 100);
-                setTimeout(() => playBeep(659, 180, 'sine', 0.28), 220);
+                playBeep(392, 120, 'triangle', 0.5);
+                setTimeout(() => playBeep(523, 100, 'triangle', 0.45), 100);
+                setTimeout(() => playBeep(659, 180, 'sine', 0.45), 220);
             } catch (e) {
                 console.warn('[AUDIO] playTurnStart', e);
             }
@@ -1131,8 +1132,8 @@ if (platform === 'android') {
         function playWarning() {
             if (!state || !state.isHost) return;
             try {
-                playBeep(660, 100, 'sine', 0.35);
-                setTimeout(() => playBeep(880, 180, 'triangle', 0.3), 80);
+                playBeep(660, 100, 'sine', 0.5);
+                setTimeout(() => playBeep(880, 180, 'triangle', 0.45), 80);
             } catch (e) {
                 console.warn('[AUDIO] playWarning', e);
             }
@@ -1141,8 +1142,8 @@ if (platform === 'android') {
         function playTimeUp() {
             if (!state || !state.isHost) return;
             try {
-                playBeep(220, 350, 'triangle', 0.45);
-                setTimeout(() => playBeep(165, 450, 'sine', 0.4), 300);
+                playBeep(220, 350, 'triangle', 0.55);
+                setTimeout(() => playBeep(165, 450, 'sine', 0.5), 300);
             } catch (e) {
                 console.warn('[AUDIO] playTimeUp', e);
             }
@@ -1152,11 +1153,11 @@ if (platform === 'android') {
             if (!state || !state.isHost) return;
             try {
                 const t = 200;
-                playBeep(262, t, 'sine', 0.3);
-                setTimeout(() => playBeep(523, t, 'triangle', 0.32), t);
-                setTimeout(() => playBeep(659, t, 'triangle', 0.32), t * 2);
-                setTimeout(() => playBeep(784, t, 'sine', 0.35), t * 3);
-                setTimeout(() => playBeep(1047, t * 2, 'sine', 0.38), t * 4);
+                playBeep(262, t, 'sine', 0.45);
+                setTimeout(() => playBeep(523, t, 'triangle', 0.48), t);
+                setTimeout(() => playBeep(659, t, 'triangle', 0.48), t * 2);
+                setTimeout(() => playBeep(784, t, 'sine', 0.52), t * 3);
+                setTimeout(() => playBeep(1047, t * 2, 'sine', 0.55), t * 4);
             } catch (e) {
                 console.warn('[AUDIO] playGameEndSuccess', e);
             }
@@ -1282,6 +1283,7 @@ if (platform === 'android') {
             state.players = {};
             state.lastAnnouncedTurnTime = 0;
             state.lastAnnouncedGeneration = 0;
+            state.graszSamAnnouncedForGeneration = null;
             state.warningPlayed = false;
             state.timeUpPlayed = false;
             state.overtime2xPlayed = false;
@@ -1765,7 +1767,14 @@ if (platform === 'android') {
                                 console.log('[VOICE-DBG] LISTENER fallback pierwszy gracz -> hostSpeak:', currentPlayer.name);
                                 playTurnStart();
                                 const remainingInGen = playerOrder.filter(pid => !data.players?.[pid]?.passedGen).length;
-                                hostSpeak(remainingInGen === 1 ? `${currentPlayer.name} grasz sam` : currentPlayer.name);
+                                const gen = data.generation || 1;
+                                const sayGraszSam = remainingInGen === 1 && state.graszSamAnnouncedForGeneration !== gen;
+                                if (sayGraszSam) {
+                                    hostSpeak(`${currentPlayer.name} grasz sam`);
+                                    state.graszSamAnnouncedForGeneration = gen;
+                                } else {
+                                    hostSpeak(currentPlayer.name);
+                                }
                                 state.lastAnnouncedTurnTime = data.turnStartTime;
                                 state.lastAnnouncedGeneration = data.generation;
                                 state.gameStartAnnounced = true;
@@ -1828,7 +1837,14 @@ if (platform === 'android') {
                                     console.log('[VOICE-DBG] LISTENER setTimeout -> hostSpeak (tura):', currentPlayer.name);
                                     playTurnStart();
                                     const remainingInGen = playerOrder.filter(pid => !data.players?.[pid]?.passedGen).length;
-                                    hostSpeak(remainingInGen === 1 ? `${currentPlayer.name} grasz sam` : currentPlayer.name);
+                                    const gen = data.generation || 1;
+                                    const sayGraszSam = remainingInGen === 1 && state.graszSamAnnouncedForGeneration !== gen;
+                                    if (sayGraszSam) {
+                                        hostSpeak(`${currentPlayer.name} grasz sam`);
+                                        state.graszSamAnnouncedForGeneration = gen;
+                                    } else {
+                                        hostSpeak(currentPlayer.name);
+                                    }
                                     state.pendingTurnAnnounceTimeoutId = null;
                                 }, extraDelay);
                             }
@@ -1840,6 +1856,7 @@ if (platform === 'android') {
                         // Track generation changes separately
                         if (generationChanged) {
                             state.lastAnnouncedGeneration = data.generation;
+                            state.graszSamAnnouncedForGeneration = null;
                         }
                     }
                     
@@ -2405,6 +2422,7 @@ if (platform === 'android') {
             const now = Date.now();
             state.lastAnnouncedTurnTime = turnStartTime;
             state.lastAnnouncedGeneration = 1;
+            state.graszSamAnnouncedForGeneration = null;
             state.gameStartAnnounced = true;
             setTimeout(() => { state.gameStartAnnounced = false; }, 2000);
             try {
