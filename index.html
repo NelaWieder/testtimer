@@ -193,9 +193,24 @@
                 <div class="prep-draft-circle-wrap" id="prepDraftCircleWrap"></div>
                 <div class="prep-card-choice-wrap" id="prepCardChoiceWrap">
                     <div class="prep-card-choice-animation" aria-hidden="true">
-                        <span class="prep-card-choice-icon">🃏</span>
-                        <span class="prep-card-choice-icon">📋</span>
-                        <span class="prep-card-choice-icon">🏢</span>
+                        <div class="prep-card-tm prep-card-corporation" title="Korporacja">
+                            <div class="prep-card-tm-inner">
+                                <svg class="prep-card-tm-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="8" y="12" width="32" height="28" rx="2"/><path d="M8 20h32"/><path d="M14 20v16"/><path d="M22 20v16"/><path d="M30 20v16"/></svg>
+                                <span class="prep-card-tm-label">Korporacja</span>
+                            </div>
+                        </div>
+                        <div class="prep-card-tm prep-card-prelude" title="Preludium">
+                            <div class="prep-card-tm-inner">
+                                <svg class="prep-card-tm-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M24 6l4 10 10 2-7 7 2 10-9-5-9 5 2-10-7-7 10-2z"/></svg>
+                                <span class="prep-card-tm-label">Preludium</span>
+                            </div>
+                        </div>
+                        <div class="prep-card-tm prep-card-project" title="Karty projektów">
+                            <div class="prep-card-tm-inner">
+                                <svg class="prep-card-tm-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M24 10l-8 8h6v12h4V18h6z"/><ellipse cx="24" cy="38" rx="6" ry="2"/></svg>
+                                <span class="prep-card-tm-label">Projekt</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <p class="prep-draft-direction" id="prepDraftDirection">Wybierz karty</p>
@@ -385,6 +400,7 @@
             warningPopPlayed: false,
             shakeAt5Played: false,
             turnGlowColor: null,
+            overtime2xPlayed: false,
             prevWaitingPlayerIds: [],
             startBtnWasDisabled: true
         };
@@ -436,7 +452,7 @@
             
             // Load and find Polish voice
             loadVoices() {
-                const voices = speechSynthesis.getVoices();
+                const voices = (typeof speechSynthesis.getVoices === 'function' ? speechSynthesis.getVoices() : null) || [];
                 console.log('[TTS] Available voices:', voices.length);
                 
                 if (voices.length === 0) {
@@ -513,7 +529,8 @@
                         utterance.lang = 'pl-PL';
                     } else if (platform === 'desktop' && this.polishVoice) {
                         // Re-resolve by name to avoid stale voice object references
-                        const resolved = speechSynthesis.getVoices().find(v => v.name === this.polishVoice.name) || null;
+                        const voices = (speechSynthesis.getVoices && speechSynthesis.getVoices()) || [];
+                        const resolved = voices.find(v => v.name === this.polishVoice.name) || null;
                         utterance.voice = resolved;
                     }
                     
@@ -600,10 +617,8 @@
                         } else if (platform === 'android') {
                             // ANDROID: Use Polish voice if available, otherwise fallback
                             // Android Chrome often fails when voice=null, but works when a voice object is assigned.
-                            const voices = speechSynthesis.getVoices();
-                            
-                            // Log all available voices for debugging
-                            console.log('[TTS] Android - wszystkie dostępne głosy:', voices.map(v => `${v.name} (${v.lang})`));
+                            const voices = (speechSynthesis.getVoices && speechSynthesis.getVoices()) || [];
+                            if (voices.length > 0) console.log('[TTS] Android - wszystkie dostępne głosy:', voices.map(v => `${v.name} (${v.lang})`));
                             
                             let preferred = null;
                             
@@ -651,7 +666,8 @@
                         } else {
                             // Desktop: Use best voice if available
                             if (this.polishVoice) {
-                                const resolved = speechSynthesis.getVoices().find(v => v.name === this.polishVoice.name) || null;
+                                const voices = (speechSynthesis.getVoices && speechSynthesis.getVoices()) || [];
+                                const resolved = voices.find(v => v.name === this.polishVoice.name) || null;
                                 utterance.voice = resolved;
                             }
                             console.log('[TTS] Desktop mode - voice:', utterance.voice?.name || 'default');
@@ -746,7 +762,7 @@
                                     retry.volume = 1.0;
                                     if (platform === 'android') {
                                         // Retry: try Polish voice first with better detection, then fallback
-                                        const voices = speechSynthesis.getVoices();
+                                        const voices = (speechSynthesis.getVoices && speechSynthesis.getVoices()) || [];
                                         let retryVoice = null;
                                         
                                         // Try cached Polish voice first
@@ -792,15 +808,15 @@
                         speechSynthesis.speak(utterance);
 
                         // HARD ANDROID FALLBACK: if it didn't start, try again shortly with a different strategy
-                        if (platform === 'android') {
-                            setTimeout(() => {
-                                if (!speechSynthesis.speaking && !startFired) {
+if (platform === 'android') {
+                                    setTimeout(() => {
+                                    if (!speechSynthesis.speaking && !startFired) {
                                     console.warn('[TTS] Android: not speaking after speak(), forcing retry');
                                     speechSynthesis.cancel();
                                     cleanup();
                                     clearTicker();
                                     // Try with voice object (Polish first with better detection, then fallback)
-                                    const voices = speechSynthesis.getVoices();
+                                    const voices = (speechSynthesis.getVoices && speechSynthesis.getVoices()) || [];
                                     let retryVoice = null;
                                     
                                     // Try cached Polish voice first
@@ -1084,8 +1100,8 @@
                     const gain = ctx.createGain();
                     osc.connect(gain);
                     gain.connect(ctx.destination);
-                    osc.frequency.value = freq;
-                    osc.type = type;
+                    osc.frequency.value = Math.max(0, Number(freq) || 800);
+                    osc.type = ['sine','square','sawtooth','triangle'].includes(type) ? type : 'sine';
                     gain.gain.setValueAtTime(volume, ctx.currentTime);
                     gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + dur / 1000);
                     osc.start(ctx.currentTime);
@@ -1104,8 +1120,9 @@
         function playTurnStart() {
             if (!state || !state.isHost) return;
             try {
-                playBeep(600, 100);
-                setTimeout(() => playBeep(800, 150), 120);
+                playBeep(392, 120, 'triangle', 0.35);
+                setTimeout(() => playBeep(523, 100, 'triangle', 0.3), 100);
+                setTimeout(() => playBeep(659, 180, 'sine', 0.28), 220);
             } catch (e) {
                 console.warn('[AUDIO] playTurnStart', e);
             }
@@ -1114,7 +1131,8 @@
         function playWarning() {
             if (!state || !state.isHost) return;
             try {
-                playBeep(880, 150, 'sine', 0.4);
+                playBeep(660, 100, 'sine', 0.35);
+                setTimeout(() => playBeep(880, 180, 'triangle', 0.3), 80);
             } catch (e) {
                 console.warn('[AUDIO] playWarning', e);
             }
@@ -1123,8 +1141,8 @@
         function playTimeUp() {
             if (!state || !state.isHost) return;
             try {
-                playBeep(300, 300, 'sawtooth', 0.5);
-                setTimeout(() => playBeep(250, 400, 'sawtooth', 0.5), 350);
+                playBeep(220, 350, 'triangle', 0.45);
+                setTimeout(() => playBeep(165, 450, 'sine', 0.4), 300);
             } catch (e) {
                 console.warn('[AUDIO] playTimeUp', e);
             }
@@ -1133,11 +1151,12 @@
         function playGameEndSuccess() {
             if (!state || !state.isHost) return;
             try {
-                const t = 180;
-                playBeep(523, t, 'sine', 0.35);
-                setTimeout(() => playBeep(659, t, 'sine', 0.35), t);
-                setTimeout(() => playBeep(784, t, 'sine', 0.35), t * 2);
-                setTimeout(() => playBeep(1047, t * 2, 'sine', 0.4), t * 3);
+                const t = 200;
+                playBeep(262, t, 'sine', 0.3);
+                setTimeout(() => playBeep(523, t, 'triangle', 0.32), t);
+                setTimeout(() => playBeep(659, t, 'triangle', 0.32), t * 2);
+                setTimeout(() => playBeep(784, t, 'sine', 0.35), t * 3);
+                setTimeout(() => playBeep(1047, t * 2, 'sine', 0.38), t * 4);
             } catch (e) {
                 console.warn('[AUDIO] playGameEndSuccess', e);
             }
@@ -1145,30 +1164,15 @@
         
         /** Ogłoszenie głosowe tylko na urządzeniu hosta. */
         function hostSpeak(text) {
-            console.log('[VOICE-DBG] hostSpeak() wywołane, text=', typeof text === 'string' ? JSON.stringify(text) : text);
-            if (!state) {
-                console.log('[VOICE-DBG] hostSpeak SKIP: brak state');
-                return;
-            }
-            if (!state.isHost) {
-                console.log('[VOICE-DBG] hostSpeak SKIP: !state.isHost (nie jesteś hostem)');
-                return;
-            }
-            if (typeof text !== 'string' || !text.trim()) {
-                console.log('[VOICE-DBG] hostSpeak SKIP: text pusty lub nie string');
-                return;
-            }
-            if (state.isMuted) {
-                console.log('[VOICE-DBG] hostSpeak SKIP: state.isMuted=true');
-                return;
-            }
             try {
-                if (typeof TTS === 'undefined' || !TTS.speak) {
-                    console.log('[VOICE-DBG] hostSpeak SKIP: TTS lub TTS.speak niedostępne');
-                    return;
-                }
-                console.log('[VOICE-DBG] hostSpeak -> wywołuję TTS.speak:', JSON.stringify(text));
-                TTS.speak(text);
+                const safeText = String(text != null ? text : '').trim();
+                if (!safeText) return;
+                console.log('[VOICE-DBG] hostSpeak() wywołane, text=', safeText.substring(0, 50));
+                if (!state) return;
+                if (!state.isHost) return;
+                if (state.isMuted) return;
+                if (typeof TTS === 'undefined' || !TTS.speak) return;
+                TTS.speak(safeText);
             } catch (e) {
                 console.warn('[VOICE-DBG] hostSpeak błąd:', e);
             }
@@ -1280,6 +1284,7 @@
             state.lastAnnouncedGeneration = 0;
             state.warningPlayed = false;
             state.timeUpPlayed = false;
+            state.overtime2xPlayed = false;
             state.gameStartAnnounced = false;
             if (hadRoom && rid && pid) {
                 try {
@@ -1581,7 +1586,7 @@
             } catch (e) {
                 console.warn('[startGame] initAudio', e);
             }
-            hostSpeak('Czas start');
+            hostSpeak('Misja Mars - start');
             const now = Date.now();
             try {
                 await update(ref(db, `rooms/${state.roomId}`), {
@@ -1610,6 +1615,7 @@
             // Reset state
             state.warningPlayed = false;
             state.timeUpPlayed = false;
+            state.overtime2xPlayed = false;
             // DON'T reset gameStartAnnounced here - it's set in startGame() and prevents double announcement
             
             const roomRef = ref(db, `rooms/${state.roomId}`);
@@ -1758,7 +1764,8 @@
                             if (currentPlayer) {
                                 console.log('[VOICE-DBG] LISTENER fallback pierwszy gracz -> hostSpeak:', currentPlayer.name);
                                 playTurnStart();
-                                hostSpeak(currentPlayer.name);
+                                const remainingInGen = playerOrder.filter(pid => !data.players?.[pid]?.passedGen).length;
+                                hostSpeak(remainingInGen === 1 ? `${currentPlayer.name} grasz sam` : currentPlayer.name);
                                 state.lastAnnouncedTurnTime = data.turnStartTime;
                                 state.lastAnnouncedGeneration = data.generation;
                                 state.gameStartAnnounced = true;
@@ -1807,6 +1814,7 @@
                                 // Reset warning flags for new turn
                                 state.warningPlayed = false;
                                 state.timeUpPlayed = false;
+                                state.overtime2xPlayed = false;
                                 
                                 // Ogłoś gracza – bez opóźnienia (lepsze dla TTS), chyba że był „X spasował”
                                 const now = Date.now();
@@ -1819,7 +1827,8 @@
                                 state.pendingTurnAnnounceTimeoutId = setTimeout(() => {
                                     console.log('[VOICE-DBG] LISTENER setTimeout -> hostSpeak (tura):', currentPlayer.name);
                                     playTurnStart();
-                                    hostSpeak(currentPlayer.name);
+                                    const remainingInGen = playerOrder.filter(pid => !data.players?.[pid]?.passedGen).length;
+                                    hostSpeak(remainingInGen === 1 ? `${currentPlayer.name} grasz sam` : currentPlayer.name);
                                     state.pendingTurnAnnounceTimeoutId = null;
                                 }, extraDelay);
                             }
@@ -1863,6 +1872,28 @@
                             playTimeUp();
                             hostSpeak('Koniec czasu');
                             state.timeUpPlayed = true;
+                        }
+                        const turnDuration = state.gameState.turnDuration || 45;
+                        if (remaining < -turnDuration && !state.overtime2xPlayed) {
+                            state.overtime2xPlayed = true;
+                            const overtime2xTexts = [
+                                'Uwaga! Poziom tlenu rośnie szybciej niż Twoja decyzja.',
+                                'Rada Marsjańska czeka. Cierpliwość terraformatorów ma swoje granice.',
+                                'Mars się nie skolonizuje sam. Wykonaj turę.',
+                                'Satelity wykryły nadmierne przeciąganie decyzji.',
+                                'Analiza zakończona. Wynik: za długo myślisz.',
+                                'W kosmosie nikt nie usłyszy Twojego wahania.',
+                                'Alarm! Wykryto strategiczne przeciąganie tury.',
+                                'Projekt terraformacji wstrzymany przez nadmierne analizowanie.',
+                                'System rekomenduje wykonanie dowolnego ruchu.',
+                                'Tryb: przeciąganie. Proponowane działanie: ruch.',
+                                'Twoja analiza trwa dłużej niż lot na Marsa.',
+                                'Excel już by to policzył.',
+                                'Plan piękny. Realizacja w 2037.',
+                                'Uwaga. Wykryto tryb: filozof.'
+                            ];
+                            const msg = overtime2xTexts[Math.floor(Math.random() * overtime2xTexts.length)] || overtime2xTexts[0];
+                            if (msg) hostSpeak(msg);
                         }
                     }
                 } catch (_) {}
@@ -2538,6 +2569,7 @@
         // END GAME (host only, from "Koniec gry" hold)
         async function endGame() {
             if (!state.isHost || !state.gameState) return;
+            hostSpeak('Teraformacja zakończona');
             const data = state.gameState;
             const gameEndTime = Date.now();
             const gameStartTime = data.gameStartTime || gameEndTime;
@@ -2548,7 +2580,6 @@
             
             const updatePayload = {
                 state: 'finished',
-                playerOrder: null,
                 boardId: null,
                 gameEndTime,
                 finalGeneration,
@@ -2581,10 +2612,19 @@
         }
         
         function showStatsScreen(data) {
+            if (!data || !el.statsList || !el.statsOverlay) return;
             const gen = data.finalGeneration ?? data.generation ?? 0;
             const durationSec = data.gameDurationSeconds ?? 0;
+            const turnHistory = data.turnHistory || {};
+            const turnEntries = Object.values(turnHistory).filter(e => e && e.playerId != null && e.startTime != null && e.endTime != null);
             const playerOrder = data.playerOrder || [];
-            const players = playerOrder.map(pid => ({ id: pid, ...(data.players?.[pid] || {}) })).filter(p => p.name);
+            let players = playerOrder.map(pid => ({ id: pid, ...(data.players?.[pid] || {}) })).filter(p => p && (p.name || p.id));
+            if (players.length === 0 && turnEntries.length > 0) {
+                const seen = new Set();
+                const orderFromTurns = [];
+                turnEntries.forEach(e => { if (!seen.has(e.playerId)) { seen.add(e.playerId); orderFromTurns.push(e.playerId); } });
+                players = orderFromTurns.map(pid => ({ id: pid, ...(data.players?.[pid] || {}), name: (data.players?.[pid]?.name) || `Gracz ${String(pid || '').slice(0, 8)}`, color: data.players?.[pid]?.color || 'gray' }));
+            }
             
             const mins = Math.floor(durationSec / 60);
             const secs = durationSec % 60;
@@ -2593,8 +2633,6 @@
             const generationStartTimes = data.generationStartTimes || {};
             const generationEndTimes = data.generationEndTimes || {};
             const totalAdminTimeMs = data.totalAdminTimeMs || 0;
-            const turnHistory = data.turnHistory || {};
-            const turnEntries = Object.values(turnHistory).filter(e => e && e.playerId != null && e.startTime != null && e.endTime != null);
             
             const gameStartTime = data.gameStartTime || 0;
             const gen1Start = generationStartTimes[1] ?? generationStartTimes['1'] ?? 0;
@@ -2674,7 +2712,7 @@
                     <div class="stats-player-block">
                         <div class="stats-player">
                             <span class="stats-player-dot" style="background:${COLOR_HEX[p.color] || '#6b7280'}"></span>
-                            <span>${p.name}</span>
+                            <span>${p.name || ('Gracz ' + (p.id || '').slice(0, 8)) || '—'}</span>
                         </div>
                         <div class="stats-player-rows">
                             <div class="stats-row stats-sub"><span>Suma czasu tur</span><strong>${formatDurationMs(st.sumMs)}</strong></div>
@@ -2847,6 +2885,7 @@
                 state.lastAnnouncedGeneration = 0;
                 state.warningPlayed = false;
                 state.timeUpPlayed = false;
+                state.overtime2xPlayed = false;
                 state.gameStartAnnounced = false;
                 if (el.hostOnlySection) el.hostOnlySection.style.display = 'none';
                 if (el.hostSoundSection) el.hostSoundSection.style.display = 'none';

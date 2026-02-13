@@ -1200,6 +1200,7 @@ body {
     text-transform: uppercase;
     margin-bottom: 20px;
 }
+/* Karty w stylu Terraforming Mars – aby dodać własne grafiki: ustaw background-image na .prep-card-tm-inner lub .prep-card-corporation/.prep-card-prelude/.prep-card-project */
 .prep-card-choice-wrap {
     margin: 0 auto 16px;
     min-height: 120px;
@@ -1209,21 +1210,75 @@ body {
 }
 .prep-card-choice-animation {
     display: flex;
+    align-items: stretch;
+    justify-content: center;
+    gap: 12px;
+}
+.prep-card-tm {
+    width: 72px;
+    min-height: 96px;
+    border-radius: 6px;
+    padding: 2px;
+    display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 20px;
-}
-.prep-card-choice-icon {
-    font-size: 2.5rem;
-    opacity: 0.9;
     animation: prepCardPulse 1.8s ease-in-out infinite;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
 }
-.prep-card-choice-icon:nth-child(1) { animation-delay: 0s; }
-.prep-card-choice-icon:nth-child(2) { animation-delay: 0.3s; }
-.prep-card-choice-icon:nth-child(3) { animation-delay: 0.6s; }
+.prep-card-tm:nth-child(1) { animation-delay: 0s; }
+.prep-card-tm:nth-child(2) { animation-delay: 0.3s; }
+.prep-card-tm:nth-child(3) { animation-delay: 0.6s; }
+.prep-card-corporation {
+    background: linear-gradient(145deg, #1e3a5f 0%, #0f2744 100%);
+    border: 1px solid rgba(59, 130, 246, 0.5);
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+}
+.prep-card-prelude {
+    background: linear-gradient(145deg, #4a3a1a 0%, #2d2208 100%);
+    border: 1px solid rgba(251, 191, 36, 0.6);
+    box-shadow: 0 0 15px rgba(251, 191, 36, 0.25);
+}
+.prep-card-project {
+    background: linear-gradient(145deg, #1a3d2a 0%, #0d2618 100%);
+    border: 1px solid rgba(34, 197, 94, 0.5);
+    box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);
+}
+.prep-card-tm-inner {
+    width: 100%;
+    height: 100%;
+    min-height: 90px;
+    border-radius: 4px;
+    background: rgba(0,0,0,0.35);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px;
+}
+.prep-card-tm-icon {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    opacity: 0.9;
+}
+.prep-card-corporation .prep-card-tm-icon { color: #93c5fd; }
+.prep-card-prelude .prep-card-tm-icon { color: #fde047; }
+.prep-card-project .prep-card-tm-icon { color: #86efac; }
+.prep-card-tm-label {
+    font-size: 0.55rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.9;
+}
+.prep-card-corporation .prep-card-tm-label { color: #93c5fd; }
+.prep-card-prelude .prep-card-tm-label { color: #fde047; }
+.prep-card-project .prep-card-tm-label { color: #86efac; }
 @keyframes prepCardPulse {
-    0%, 100% { transform: scale(1); opacity: 0.7; }
-    50% { transform: scale(1.15); opacity: 1; }
+    0%, 100% { transform: scale(1); opacity: 0.85; }
+    50% { transform: scale(1.08); opacity: 1; }
 }
 
 .svg-defs { position: absolute; width: 0; height: 0; }
